@@ -37,7 +37,24 @@ Une seule base de code, deux plateformes : **iOS** (l'utilisatrice) et **Android
 
 ---
 
-## Lancer l'app
+## Tester sans rien installer
+
+Le plus simple, depuis un téléphone : **ouvrir la version web**. C'est la même app,
+le même code, le même rendu — juste sans les vibrations (le web ne les propose pas).
+Les événements sont gardés dans le navigateur, donc on peut vraiment s'en servir.
+
+Deux chemins :
+
+1. **L'aperçu publié** — le lien partagé dans la conversation. Rien à faire, ça s'ouvre.
+2. **GitHub Pages**, pour une URL permanente qui se met à jour à chaque push :
+   dans le repo, *Settings → Pages → Source : **GitHub Actions***.
+   Le workflow `.github/workflows/web.yml` fait le reste, et le site sort sur
+   `https://<compte>.github.io/<repo>/`.
+
+Dans les deux cas, « Ajouter à l'écran d'accueil » depuis le navigateur donne une
+icône et un affichage plein écran, comme une vraie app.
+
+## Lancer l'app en développement
 
 ```bash
 npm install
@@ -46,10 +63,10 @@ npx expo start
 
 Puis :
 
-- **Android (ton test)** : installe *Expo Go* depuis le Play Store, ouvre-le et scanne le QR code affiché dans le terminal.
-- **iOS (son téléphone)** : installe *Expo Go* depuis l'App Store et scanne le QR code avec l'appareil photo.
+- **Android** : installe *Expo Go* depuis le Play Store, ouvre-le et scanne le QR code affiché dans le terminal.
+- **iOS** : installe *Expo Go* depuis l'App Store et scanne le QR code avec l'appareil photo.
   (Le téléphone et l'ordinateur doivent être sur le même réseau Wi-Fi ; sinon `npx expo start --tunnel`.)
-- **Navigateur**, pour jeter un œil vite fait : `npx expo start --web`.
+- **Navigateur** : `npx expo start --web`.
 
 Pour installer l'app « pour de vrai » sur l'iPhone (sans passer par l'App Store, sans Mac) :
 
@@ -57,12 +74,11 @@ Pour installer l'app « pour de vrai » sur l'iPhone (sans passer par l'App Stor
 npx eas build --platform ios --profile preview
 ```
 
----
-
 ## Structure
 
 ```
 App.tsx                     fond dégradé + providers
+app.config.js               préfixe des chemins pour le build web
 src/
   theme.ts                  palette pastel (wash / solid / deep), rayons, ombres, emojis
   types.ts                  AgendaEvent, Draft

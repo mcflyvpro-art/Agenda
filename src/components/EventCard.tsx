@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
