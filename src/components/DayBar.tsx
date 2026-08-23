@@ -12,13 +12,15 @@ type Props = {
   /** afficher le repère de l'heure courante */
   live?: boolean;
   onPressEvent?: (e: AgendaEvent) => void;
+  /** rendu clair sur fond dégradé, plutôt que la version blanche par défaut */
+  dark?: boolean;
 };
 
 /**
  * La journée ramassée en une barre : où sont les blocs, où sont les trous.
  * On la lit d'un coup d'œil, sans faire défiler quoi que ce soit.
  */
-export function DayBar({ events, live = true, onPressEvent }: Props) {
+export function DayBar({ events, live = true, onPressEvent, dark = false }: Props) {
   const { swatch } = useSettings();
 
   const timed = useMemo(
@@ -40,10 +42,11 @@ export function DayBar({ events, live = true, onPressEvent }: Props) {
 
   // trois repères horaires, arrondis à l'heure
   const ticks = [from, from + span / 2, to].map((m) => Math.round(m / 60) * 60);
+  const nowColor = dark ? '#FFFFFF' : theme.ink;
 
   return (
     <View>
-      <View style={styles.track}>
+      <View style={[styles.track, dark && styles.trackDark]}>
         {timed.map((e) => {
           const c = swatch(e.color);
           const left = pct(e.start);
@@ -64,6 +67,7 @@ export function DayBar({ events, live = true, onPressEvent }: Props) {
               style={[
                 styles.block,
                 { left: left as any, width: width as any, backgroundColor: c.solid },
+                dark && styles.blockDark,
                 e.done && { opacity: 0.4 },
               ]}
             >
@@ -74,20 +78,27 @@ export function DayBar({ events, live = true, onPressEvent }: Props) {
 
         {showNow && (
           <View style={[styles.now, { left: pct(now) as any }]}>
-            <View style={[styles.nowLine, { backgroundColor: theme.ink }]} />
-            <View style={[styles.nowDot, { backgroundColor: theme.ink }]} />
+            <View style={[styles.nowLine, { backgroundColor: nowColor }]} />
+            <View style={[styles.nowDot, { backgroundColor: nowColor }]} />
           </View>
         )}
       </View>
 
       <View style={styles.ticks}>
         {ticks.map((m, i) => (
-          <Text key={i} style={[styles.tick, i === 1 && styles.tickMid, i === 2 && styles.tickEnd]}>
+          <Text
+            key={i}
+            style={[
+              styles.tick,
+              dark && styles.tickDark,
+              i === 1 && styles.tickMid,
+              i === 2 && styles.tickEnd,
+            ]}
+          >
             {hhmm(m)}
           </Text>
         ))}
       </View>
-
     </View>
   );
 }
@@ -99,7 +110,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(32,32,43,0.055)',
     overflow: 'visible',
   },
+  trackDark: { backgroundColor: 'rgba(255,255,255,0.2)' },
   block: { position: 'absolute', top: 4, bottom: 4, borderRadius: 9, minWidth: 6 },
+  blockDark: { borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.55)' },
   now: { position: 'absolute', top: -3, bottom: -3, width: 2, alignItems: 'center' },
   nowLine: { flex: 1, width: 2, borderRadius: 1 },
   nowDot: { position: 'absolute', top: -3, width: 6, height: 6, borderRadius: 3 },
@@ -111,6 +124,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     flex: 1,
   },
+  tickDark: { color: 'rgba(255,255,255,0.8)' },
   tickMid: { textAlign: 'center' },
   tickEnd: { textAlign: 'right' },
 });

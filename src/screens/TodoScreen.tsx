@@ -48,7 +48,6 @@ export function TodoScreen({ onOpen, onSchedule, bottomInset }: Props) {
       style={styles.root}
     >
       <View style={[styles.addRow, { marginTop: insets.top + 14 }]}>
-        <Ionicons name="add" size={20} color={theme.inkFaint} />
         <TextInput
           value={text}
           onChangeText={setText}

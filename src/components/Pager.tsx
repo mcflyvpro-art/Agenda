@@ -1,5 +1,13 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import { FlatList, NativeScrollEvent, NativeSyntheticEvent, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 type Props = {
   count: number;
@@ -12,60 +20,127 @@ type Props = {
   style?: any;
 };
 
+/** distance ou vitesse à partir de laquelle un glissement valide le changement de page */
+const SWIPE_DISTANCE = 60;
+const SWIPE_VELOCITY = 700;
+
+// Un seul Pager actif à la fois dans l'appli : un simple drapeau de module
+// suffit donc à prévenir les zones tactiles (Squish, cases de la timeline)
+// qu'un balayage est en cours, pour qu'elles ignorent le tap fantôme que le
+// relâchement du doigt peut déclencher juste après (surtout sur le web, où
+// la souris synthétique n'annule pas toujours proprement le clic sous-jacent).
+let pagerGestureActive = false;
+function setPagerGestureActive(v: boolean) {
+  pagerGestureActive = v;
+}
+function clearGestureActiveSoon(delay: number) {
+  setTimeout(() => setPagerGestureActive(false), delay);
+}
+/** À vérifier en tête d'un handler de tap qui partage l'écran avec un Pager. */
+export function isPagerGestureActive() {
+  return pagerGestureActive;
+}
+
 /**
- * Pager horizontal « à la iOS » : swipe fluide, page pleine largeur,
- * pilotable de l'extérieur (boutons de navigation, « Aujourd'hui »…).
+ * Pager horizontal maison. Le scroll natif à pagination peut « rouler »
+ * sur plusieurs pages d'un coup lors d'un balayage rapide ou ample, selon
+ * la plateforme (Android, web) — ici c'est impossible par construction :
+ * le glissement est borné à une largeur de page, et chaque geste ne peut
+ * jamais faire avancer ou reculer que d'un seul cran.
  */
 export function Pager({ count, index, width, onIndexChange, renderPage, pageHeight, style }: Props) {
-  const ref = useRef<FlatList<number>>(null);
-  const reported = useRef(index);
+  const dragX = useSharedValue(0);
+  const startX = useSharedValue(0);
+  const busy = useSharedValue(false);
 
+  // un changement d'index venu d'ailleurs (bouton, sélection, création…) : on se recentre net
   useEffect(() => {
-    if (reported.current === index) return;
-    reported.current = index;
-    ref.current?.scrollToOffset({ offset: index * width, animated: true });
-  }, [index, width]);
+    dragX.value = 0;
+  }, [index]);
 
-  const onMomentumEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const i = Math.round(e.nativeEvent.contentOffset.x / width);
-      if (i === reported.current) return;
-      reported.current = i;
-      onIndexChange(i);
-    },
-    [onIndexChange, width],
-  );
+  const hasPrev = index > 0;
+  const hasNext = index < count - 1;
+
+  const pan = Gesture.Pan()
+    .enabled(count > 1)
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-16, 16])
+    .onStart(() => {
+      startX.value = dragX.value;
+      runOnJS(setPagerGestureActive)(true);
+    })
+    .onUpdate((e) => {
+      if (busy.value) return;
+      const raw = startX.value + e.translationX;
+      const min = hasNext ? -width : 0;
+      const max = hasPrev ? width : 0;
+      dragX.value = Math.min(max, Math.max(min, raw));
+    })
+    .onEnd((e) => {
+      // le tap fantôme survient juste après le relâchement : on laisse un
+      // court sursis après la fin de l'animation avant de rouvrir le geste
+      // aux zones tactiles sous-jacentes.
+      runOnJS(clearGestureActiveSoon)(300);
+      if (busy.value) return;
+      const goNext = hasNext && (dragX.value < -SWIPE_DISTANCE || e.velocityX < -SWIPE_VELOCITY);
+      const goPrev =
+        !goNext && hasPrev && (dragX.value > SWIPE_DISTANCE || e.velocityX > SWIPE_VELOCITY);
+
+      if (goNext) {
+        busy.value = true;
+        dragX.value = withTiming(-width, { duration: 220 }, (done) => {
+          if (done) {
+            dragX.value = 0;
+            busy.value = false;
+            runOnJS(onIndexChange)(index + 1);
+          }
+        });
+      } else if (goPrev) {
+        busy.value = true;
+        dragX.value = withTiming(width, { duration: 220 }, (done) => {
+          if (done) {
+            dragX.value = 0;
+            busy.value = false;
+            runOnJS(onIndexChange)(index - 1);
+          }
+        });
+      } else {
+        dragX.value = withSpring(0, { damping: 26, stiffness: 300 });
+      }
+    });
+
+  const prevStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -width + dragX.value }],
+  }));
+  const curStyle = useAnimatedStyle(() => ({ transform: [{ translateX: dragX.value }] }));
+  const nextStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: width + dragX.value }],
+  }));
+
+  const slotSize = pageHeight ? { width, height: pageHeight } : { width, height: '100%' as const };
 
   return (
-    <FlatList
-      ref={ref}
-      style={style}
-      data={PAGES(count)}
-      keyExtractor={(i) => `p${i}`}
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      initialScrollIndex={index}
-      decelerationRate="fast"
-      windowSize={3}
-      initialNumToRender={1}
-      maxToRenderPerBatch={2}
-      removeClippedSubviews
-      getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-      onMomentumScrollEnd={onMomentumEnd}
-      renderItem={({ item }) => (
-        <View style={pageHeight ? { width, height: pageHeight } : { width }}>{renderPage(item)}</View>
-      )}
-    />
+    <GestureDetector gesture={pan}>
+      <View style={[styles.clip, pageHeight ? { height: pageHeight } : { height: '100%' }, style]}>
+        {hasPrev && (
+          <Animated.View style={[styles.slot, slotSize, prevStyle]}>
+            {renderPage(index - 1)}
+          </Animated.View>
+        )}
+        <Animated.View style={[styles.slot, slotSize, curStyle]}>
+          {renderPage(index)}
+        </Animated.View>
+        {hasNext && (
+          <Animated.View style={[styles.slot, slotSize, nextStyle]}>
+            {renderPage(index + 1)}
+          </Animated.View>
+        )}
+      </View>
+    </GestureDetector>
   );
 }
 
-const cache = new Map<number, number[]>();
-function PAGES(count: number): number[] {
-  let arr = cache.get(count);
-  if (!arr) {
-    arr = Array.from({ length: count }, (_, i) => i);
-    cache.set(count, arr);
-  }
-  return arr;
-}
+const styles = StyleSheet.create({
+  clip: { overflow: 'hidden', width: '100%' },
+  slot: { position: 'absolute', top: 0, left: 0 },
+});

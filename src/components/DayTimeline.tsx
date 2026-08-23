@@ -1,18 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  GestureResponderEvent,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+// Pressable de gesture-handler ici aussi : cette zone tactile vit dans le
+// même arbre que le Pager (le swipe de jour) et doit céder proprement la
+// main quand ce dernier capture le geste, plutôt que de déclencher un tap
+// résiduel à la fin d'un balayage.
+import { Pressable } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { fromKey, hhmm, minutesNow, roundToQuarter, shortDay, todayKey } from '../lib/date';
 import { tapLight, tapSoft } from '../lib/haptics';
 import { layoutDay } from '../lib/layout';
+import { isPagerGestureActive } from './Pager';
 import { HOUR_HEIGHT, useSettings } from '../store/settings';
 import { theme } from '../theme';
 import type { AgendaEvent } from '../types';
@@ -53,7 +51,6 @@ export function DayTimeline({
   const { settings, swatch, ui } = useSettings();
   const { width } = useWindowDimensions();
   const scroller = useRef<ScrollView>(null);
-  const tapLayer = useRef<View>(null);
   const touched = useRef(false);
   const [, setTick] = useState(0);
 
@@ -102,24 +99,16 @@ export function DayTimeline({
   };
 
   /** Tap sur un créneau vide → création à l'heure (et au jour) touchés. */
-  const handleTap = (e: GestureResponderEvent) => {
+  const handleTap = (e: { nativeEvent: { locationX: number; locationY: number } }) => {
+    // rempart applicatif en plus de l'arène de gestes : un balayage de page
+    // en cours (ou tout juste fini) ne doit jamais ouvrir une création.
+    if (isPagerGestureActive()) return;
     const x = e.nativeEvent.locationX;
     const col = Number.isFinite(x) ? Math.min(days.length - 1, Math.max(0, Math.floor(x / colWidth))) : 0;
-    const commit = (y: number) => {
-      const raw = startHour * 60 + (y / HOUR_H) * 60;
-      const minutes = Math.max(0, Math.min(1425, roundToQuarter(raw)));
-      tapLight();
-      onCreateAt(days[col], Number.isFinite(minutes) ? minutes : 9 * 60);
-    };
-    const local = e.nativeEvent.locationY;
-    if (Number.isFinite(local)) return commit(local);
-    const pageY = e.nativeEvent.pageY;
-    const node = tapLayer.current;
-    if (node && Number.isFinite(pageY)) {
-      node.measureInWindow((_x, windowY) => commit(pageY - windowY));
-      return;
-    }
-    commit(9 * 60);
+    const raw = startHour * 60 + (e.nativeEvent.locationY / HOUR_H) * 60;
+    const minutes = Math.max(0, Math.min(1425, roundToQuarter(raw)));
+    tapLight();
+    onCreateAt(days[col], Number.isFinite(minutes) ? minutes : 9 * 60);
   };
 
   const allDayFor = (key: string) => eventsOn(key).filter((e) => e.allDay);
@@ -233,7 +222,7 @@ export function DayTimeline({
               ),
             )}
 
-          <Pressable ref={tapLayer} style={[styles.tapLayer, { left: GUTTER }]} onPress={handleTap} />
+          <Pressable style={[styles.tapLayer, { left: GUTTER }]} onPress={handleTap} />
 
           {days.map((key, col) => {
             const positioned = layoutDay(eventsOn(key));
@@ -311,7 +300,10 @@ export function DayTimeline({
           })}
 
           {showNow && (
-            <Animated.View entering={FadeIn.duration(500)} style={StyleSheet.absoluteFill}>
+            <Animated.View
+              entering={FadeIn.duration(500)}
+              style={[StyleSheet.absoluteFill, styles.nowLayer]}
+            >
               <View style={[styles.nowBadge, { top: nowTop - 8 }]}>
                 <Text style={[styles.nowBadgeText, { color: ui.today }]}>{hhmm(nowMin)}</Text>
               </View>
@@ -394,6 +386,9 @@ const styles = StyleSheet.create({
   eventEmoji: { fontSize: 13 },
   eventTitle: { flex: 1, fontSize: 13.5, fontWeight: '700', letterSpacing: -0.2 },
   eventTime: { fontSize: 11.5, fontWeight: '600', marginTop: 2, opacity: 0.85 },
+  // purement décoratif : sans ça, ce calque plein écran avale tous les taps
+  // de la timeline (événements, créneaux vides) dès qu'on regarde aujourd'hui.
+  nowLayer: { pointerEvents: 'none' },
   nowBadge: { position: 'absolute', left: 0, width: GUTTER, alignItems: 'flex-end', paddingRight: 7 },
   nowBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: -0.2 },
   nowDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4 },

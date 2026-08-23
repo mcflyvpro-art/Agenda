@@ -286,6 +286,7 @@ export function EventSheet({
               >
                 <Row
                   icon="calendar-outline"
+                  label="Date"
                   value={chipDay(fromKey(d.date))}
                   active={section === 'date'}
                   accent={c.deep}
@@ -344,7 +345,9 @@ export function EventSheet({
                     size={17}
                     color={d.allDay ? c.deep : theme.inkSoft}
                   />
-                  <View style={{ flex: 1 }} />
+                  <Text style={[styles.rowLabel, d.allDay && { color: c.deep }]}>
+                    Toute la journée
+                  </Text>
                   <Toggle
                     value={d.allDay}
                     color={c.solid}
@@ -360,6 +363,7 @@ export function EventSheet({
                     <View style={styles.divider} />
                     <Row
                       icon="play-outline"
+                      label="Début"
                       value={hhmm(d.start)}
                       active={section === 'start'}
                       accent={c.deep}
@@ -373,6 +377,7 @@ export function EventSheet({
                     )}
                     <Row
                       icon="flag-outline"
+                      label="Fin"
                       value={hhmm(d.end)}
                       active={section === 'end'}
                       accent={c.deep}
@@ -444,12 +449,14 @@ export function EventSheet({
 
 function Row({
   icon,
+  label,
   value,
   active,
   accent,
   onPress,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
   value: string;
   active: boolean;
   accent: string;
@@ -458,7 +465,7 @@ function Row({
   return (
     <Squish onPress={onPress} style={styles.row} scaleTo={0.985} dimTo={1}>
       <Ionicons name={icon} size={18} color={active ? accent : theme.inkFaint} />
-      <View style={{ flex: 1 }} />
+      <Text style={[styles.rowLabel, active && { color: accent }]}>{label}</Text>
       <View style={[styles.chip, active && { backgroundColor: `${accent}1A` }]}>
         <Text style={[styles.chipText, active && { color: accent }]}>{value}</Text>
       </View>
@@ -562,6 +569,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 13,
   },
+  rowLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: theme.ink, letterSpacing: -0.2 },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 6,

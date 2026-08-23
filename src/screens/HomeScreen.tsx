@@ -1,9 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { DayBar } from '../components/DayBar';
+import { DayRing } from '../components/DayRing';
 import { EventCard } from '../components/EventCard';
 import { Squish } from '../components/Squish';
 import { TodoCard } from '../components/TodoCard';
@@ -77,6 +79,11 @@ export function HomeScreen({
   );
   const rest = today.filter((e) => e.id !== next?.id);
   const nextColor = next ? swatch(next.color) : null;
+  const doneCount = today.filter((e) => e.done).length;
+  const left = 1440 - now;
+
+  const hoursLabel = (mins: number) =>
+    mins >= 60 ? `${Math.round((mins / 60) * 10) / 10}h` : `${mins}m`;
 
   return (
     <ScrollView
@@ -97,32 +104,56 @@ export function HomeScreen({
         </Squish>
       </View>
 
-      <Animated.View entering={FadeInDown.duration(300)} style={styles.block}>
-        <Squish
-          style={styles.glance}
-          scaleTo={0.985}
-          dimTo={1}
-          onPress={() => {
-            tapSoft();
-            onOpenAgenda();
-          }}
-        >
-          <View style={styles.stats}>
-            <View style={styles.stat}>
-              <View style={[styles.statDot, { backgroundColor: ui.accent }]} />
-              <Text style={styles.statValue}>{today.length}</Text>
+      <Animated.View entering={FadeInDown.duration(320)} style={styles.block}>
+        {/*
+          Le bloc "ouvrir l'agenda" (anneau + tuiles) et la barre du jour ont
+          chacun leur propre zone tactile : elles ne doivent jamais s'imbriquer
+          (un bouton dans un bouton n'est pas fiable, en particulier sur le web).
+        */}
+        <View style={[styles.hero, { shadowColor: ui.accent }]}>
+          <LinearGradient
+            colors={[ui.accent, ui.today]}
+            start={{ x: 0.05, y: 0 }}
+            end={{ x: 0.95, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+
+          <Squish
+            style={styles.heroTop}
+            scaleTo={0.99}
+            dimTo={1}
+            onPress={() => {
+              tapSoft();
+              onOpenAgenda();
+            }}
+          >
+            <DayRing events={today} now={now} />
+
+            <View style={styles.tiles}>
+              <View style={styles.tile}>
+                <Ionicons name="albums" size={15} color="rgba(255,255,255,0.85)" />
+                <Text style={styles.tileValue}>{today.length}</Text>
+              </View>
+              <View style={styles.tile}>
+                <Ionicons name="checkmark-done" size={15} color="rgba(255,255,255,0.85)" />
+                <Text style={styles.tileValue}>
+                  {doneCount}
+                  <Text style={styles.tileValueMuted}>/{today.length}</Text>
+                </Text>
+              </View>
+              <View style={styles.tile}>
+                <Ionicons name="flash" size={15} color="rgba(255,255,255,0.85)" />
+                <Text style={styles.tileValue}>{hoursLabel(busy)}</Text>
+              </View>
+              <View style={styles.tile}>
+                <Ionicons name="hourglass" size={15} color="rgba(255,255,255,0.85)" />
+                <Text style={styles.tileValue}>{hoursLabel(Math.max(0, left))}</Text>
+              </View>
             </View>
-            <View style={styles.stat}>
-              <Ionicons name="time-outline" size={15} color={theme.inkFaint} />
-              <Text style={styles.statValue}>
-                {busy >= 60 ? `${Math.round((busy / 60) * 10) / 10} h` : `${busy} min`}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }} />
-            <Ionicons name="chevron-forward" size={16} color={theme.inkFaint} />
-          </View>
-          <DayBar events={today} onPressEvent={onOpenEvent} />
-        </Squish>
+          </Squish>
+
+          <DayBar events={today} onPressEvent={onOpenEvent} dark />
+        </View>
       </Animated.View>
 
       <View style={styles.block}>
@@ -229,22 +260,46 @@ const styles = StyleSheet.create({
     ...theme.shadow.soft,
   },
   block: { paddingHorizontal: 18, marginBottom: 18 },
-  glance: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.lg,
-    padding: 16,
-    ...theme.shadow.soft,
+  hero: {
+    borderRadius: theme.radius.xl,
+    padding: 20,
+    paddingBottom: 18,
+    overflow: 'hidden',
+    shadowOpacity: 0.32,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 10,
   },
-  stats: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 14 },
-  stat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statDot: { width: 9, height: 9, borderRadius: 5 },
-  statValue: {
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+    marginBottom: 20,
+  },
+  tiles: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  tile: {
+    width: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 11,
+  },
+  tileValue: {
     fontSize: 16,
     fontWeight: '800',
-    color: theme.ink,
-    letterSpacing: -0.4,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
     fontVariant: ['tabular-nums'],
   },
+  tileValueMuted: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
   next: { borderRadius: theme.radius.lg, padding: 16 },
   nextTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   nextEmoji: { fontSize: 26 },
