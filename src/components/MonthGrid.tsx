@@ -1,9 +1,20 @@
 import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
-import { isSameDay, isSameMonth, monthMatrix, toKey, WEEKDAYS } from '../lib/date';
+import {
+  getISOWeek,
+  isSameDay,
+  isSameMonth,
+  isWeekend,
+  monthMatrix,
+  toKey,
+  weekdayLabels,
+} from '../lib/date';
+import { alpha } from '../lib/color';
 import { tapLight } from '../lib/haptics';
-import { swatch, theme } from '../theme';
+import { useSettings } from '../store/settings';
+import type { MonthLayout } from '../store/settings';
+import { theme, type Swatch } from '../theme';
 import type { AgendaEvent } from '../types';
 import { Squish } from './Squish';
 
@@ -13,7 +24,10 @@ type Props = {
   byDay: Record<string, AgendaEvent[]>;
   onSelect: (key: string) => void;
   cellHeight?: number;
+  /** version réduite utilisée dans la fiche événement */
   compact?: boolean;
+  /** force une disposition (sinon celle des réglages) */
+  layout?: MonthLayout;
 };
 
 type CellProps = {
@@ -24,6 +38,10 @@ type CellProps = {
   events: AgendaEvent[];
   height: number;
   compact: boolean;
+  layout: MonthLayout;
+  dim: boolean;
+  maxLoad: number;
+  swatch: (k: AgendaEvent['color']) => Swatch;
   onSelect: (key: string) => void;
 };
 
@@ -35,13 +53,32 @@ const DayCell = memo(function DayCell({
   events,
   height,
   compact,
+  layout,
+  dim,
+  maxLoad,
+  swatch,
   onSelect,
 }: CellProps) {
   const key = toKey(date);
-  const first = events[0];
-  const tint = first ? swatch(first.color) : null;
-  const dots = events.slice(0, 3);
-  const circle = compact ? 32 : 36;
+  const tint = events[0] ? swatch(events[0].color) : null;
+  const circle = compact ? 30 : layout === 'preview' ? 24 : 34;
+  const showTint = !compact && layout === 'tint' && !!tint && inMonth;
+  const heat =
+    !compact && layout === 'heat' && inMonth && events.length > 0
+      ? Math.min(0.9, 0.18 + (events.length / Math.max(2, maxLoad)) * 0.6)
+      : 0;
+
+  const numColor = selected
+    ? '#FFFFFF'
+    : !inMonth
+      ? theme.inkFaint
+      : isToday
+        ? theme.today
+        : showTint && tint
+          ? tint.deep
+          : dim
+            ? theme.inkFaint
+            : theme.ink;
 
   return (
     <Squish
@@ -56,21 +93,33 @@ const DayCell = memo(function DayCell({
       <View
         style={[
           styles.cellInner,
-          { paddingVertical: compact ? 3 : 5, borderRadius: theme.radius.md },
-          tint && inMonth && !selected ? { backgroundColor: tint.wash } : null,
+          {
+            paddingVertical: compact ? 3 : 5,
+            borderRadius: theme.radius.md,
+            justifyContent: layout === 'preview' && !compact ? 'flex-start' : 'center',
+          },
+          showTint && tint ? { backgroundColor: tint.wash } : null,
+          heat > 0 ? { backgroundColor: alpha(theme.accent, heat) } : null,
+          !showTint && heat === 0 && dim && inMonth
+            ? { backgroundColor: 'rgba(32,32,43,0.035)' }
+            : null,
         ]}
       >
-        <View style={{ width: circle, height: circle, alignItems: 'center', justifyContent: 'center' }}>
+        <View
+          style={{
+            width: circle,
+            height: circle,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           {selected && (
             <Animated.View
               key={key}
               entering={ZoomIn.springify().damping(13).stiffness(220)}
               style={[
                 StyleSheet.absoluteFill,
-                {
-                  borderRadius: circle / 2,
-                  backgroundColor: isToday ? theme.today : theme.ink,
-                },
+                { borderRadius: circle / 2, backgroundColor: isToday ? theme.today : theme.ink },
               ]}
             />
           )}
@@ -78,87 +127,163 @@ const DayCell = memo(function DayCell({
             style={[
               styles.num,
               compact && { fontSize: 14.5 },
-              !inMonth && { color: theme.inkFaint, opacity: 0.45 },
-              inMonth && isToday && !selected && { color: theme.today, fontWeight: '800' },
-              inMonth && !!tint && !selected && !isToday && { color: tint.deep },
-              selected && { color: '#FFFFFF', fontWeight: '800' },
+              layout === 'preview' && !compact && { fontSize: 13.5 },
+              { color: numColor },
+              !inMonth && { opacity: 0.45 },
+              (isToday || selected) && { fontWeight: '800' },
             ]}
           >
             {date.getDate()}
           </Text>
         </View>
 
-        {!compact ? (
-          <View style={styles.dotRow}>
-            {dots.map((e) => (
-              <View
-                key={e.id}
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor: swatch(e.color).solid,
-                    opacity: inMonth ? 1 : 0.35,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-        ) : (
-          <View style={styles.dotRow}>
-            {events.length > 0 && (
-              <View
-                style={[
-                  styles.dot,
-                  { backgroundColor: swatch(events[0].color).solid },
-                ]}
-              />
-            )}
-          </View>
-        )}
+        <Marks
+          layout={compact ? 'compact' : layout}
+          events={events}
+          inMonth={inMonth}
+          selected={selected}
+          swatch={swatch}
+        />
       </View>
     </Squish>
   );
 });
+
+function Marks({
+  layout,
+  events,
+  inMonth,
+  selected,
+  swatch,
+}: {
+  layout: MonthLayout | 'compact';
+  events: AgendaEvent[];
+  inMonth: boolean;
+  selected: boolean;
+  swatch: (k: AgendaEvent['color']) => Swatch;
+}) {
+  if (layout === 'heat') return null;
+  const opacity = inMonth ? 1 : 0.35;
+
+  if (layout === 'compact' || layout === 'minimal') {
+    return (
+      <View style={styles.markRow}>
+        {events.length > 0 && (
+          <View
+            style={[
+              styles.dot,
+              { backgroundColor: selected ? theme.inkFaint : swatch(events[0].color).solid, opacity },
+            ]}
+          />
+        )}
+      </View>
+    );
+  }
+
+  if (layout === 'bars') {
+    return (
+      <View style={styles.barStack}>
+        {events.slice(0, 3).map((e) => (
+          <View
+            key={e.id}
+            style={[styles.bar, { backgroundColor: swatch(e.color).solid, opacity }]}
+          />
+        ))}
+      </View>
+    );
+  }
+
+  if (layout === 'preview') {
+    return (
+      <View style={styles.chipStack}>
+        {events.slice(0, 3).map((e) => {
+          const c = swatch(e.color);
+          return (
+            <View key={e.id} style={[styles.chip, { backgroundColor: c.wash, opacity }]}>
+              <Text numberOfLines={1} style={[styles.chipText, { color: c.deep }]}>
+                {e.title}
+              </Text>
+            </View>
+          );
+        })}
+        {events.length > 3 && (
+          <Text style={styles.more}>+{events.length - 3}</Text>
+        )}
+      </View>
+    );
+  }
+
+  // 'dots' et 'tint'
+  return (
+    <View style={styles.markRow}>
+      {events.slice(0, 3).map((e) => (
+        <View
+          key={e.id}
+          style={[styles.dot, { backgroundColor: swatch(e.color).solid, opacity }]}
+        />
+      ))}
+    </View>
+  );
+}
 
 export function MonthGrid({
   month,
   selectedKey,
   byDay,
   onSelect,
-  cellHeight = 62,
+  cellHeight = 58,
   compact = false,
+  layout,
 }: Props) {
-  const days = monthMatrix(month);
+  const { settings, swatch } = useSettings();
+  const activeLayout = layout ?? settings.monthLayout;
+  const days = monthMatrix(month, settings.weekStart);
   const now = new Date();
+  const maxLoad = days.reduce((m, d) => Math.max(m, (byDay[toKey(d)] ?? []).length), 0);
+
+  const weekNums = !compact && settings.showWeekNumbers;
+  const rows = [0, 1, 2, 3, 4, 5];
 
   return (
     <View style={styles.wrap}>
       <View style={styles.weekHeader}>
-        {WEEKDAYS.map((d, i) => (
-          <Text key={`${d}-${i}`} style={[styles.weekLabel, i > 4 && { color: theme.inkFaint }]}>
+        {weekNums && <View style={styles.weekNumCol} />}
+        {weekdayLabels(settings.weekStart).map((d, i) => (
+          <Text key={`${d}-${i}`} style={styles.weekLabel}>
             {d}
           </Text>
         ))}
       </View>
 
-      <View style={styles.grid}>
-        {days.map((d) => {
-          const key = toKey(d);
-          return (
-            <DayCell
-              key={key}
-              date={d}
-              inMonth={isSameMonth(d, month)}
-              isToday={isSameDay(d, now)}
-              selected={key === selectedKey}
-              events={byDay[key] ?? []}
-              height={cellHeight}
-              compact={compact}
-              onSelect={onSelect}
-            />
-          );
-        })}
-      </View>
+      {rows.map((r) => (
+        <View key={r} style={styles.row}>
+          {weekNums && (
+            <View style={[styles.weekNumCol, { height: cellHeight }]}>
+              <Text style={styles.weekNumText}>{getISOWeek(days[r * 7])}</Text>
+            </View>
+          )}
+          {days.slice(r * 7, r * 7 + 7).map((d) => {
+            const key = toKey(d);
+            return (
+              <DayCell
+                key={key}
+                date={d}
+                inMonth={isSameMonth(d, month)}
+                isToday={isSameDay(d, now)}
+                selected={key === selectedKey}
+                events={byDay[key] ?? []}
+                height={cellHeight}
+                compact={compact}
+                layout={activeLayout}
+                dim={!compact && settings.dimWeekend && isWeekend(d)}
+                maxLoad={maxLoad}
+                swatch={swatch}
+                onSelect={onSelect}
+              />
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }
@@ -175,20 +300,19 @@ const styles = StyleSheet.create({
     color: theme.inkSoft,
     opacity: 0.7,
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: { width: `${100 / 7}%`, alignItems: 'center', justifyContent: 'center' },
-  cellInner: {
-    width: '88%',
-    alignItems: 'center',
-    justifyContent: 'center',
+  row: { flexDirection: 'row' },
+  cell: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  weekNumCol: { width: 22, alignItems: 'center', justifyContent: 'center' },
+  weekNumText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.inkFaint,
+    opacity: 0.65,
+    fontVariant: ['tabular-nums'],
   },
-  num: {
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-    color: theme.ink,
-  },
-  dotRow: {
+  cellInner: { width: '88%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  num: { fontSize: 16, fontWeight: '600', letterSpacing: -0.3 },
+  markRow: {
     flexDirection: 'row',
     gap: 3,
     height: 7,
@@ -197,4 +321,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dot: { width: 5, height: 5, borderRadius: 3 },
+  barStack: { width: '78%', gap: 2.5, marginTop: 3, minHeight: 7 },
+  bar: { height: 3, borderRadius: 2 },
+  chipStack: { width: '96%', gap: 2, marginTop: 2 },
+  chip: { borderRadius: 4, paddingHorizontal: 3, paddingVertical: 1.5 },
+  chipText: { fontSize: 8, fontWeight: '700', letterSpacing: -0.1 },
+  more: { fontSize: 7.5, fontWeight: '700', color: theme.inkFaint, paddingLeft: 3 },
 });

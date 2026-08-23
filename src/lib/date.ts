@@ -1,5 +1,6 @@
 import {
   addDays,
+  getISOWeek,
   addMonths,
   differenceInCalendarDays,
   differenceInCalendarMonths,
@@ -12,7 +13,15 @@ import {
 import { fr } from 'date-fns/locale';
 
 export const DAY_MS = 86400000;
-export const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+/** Initiales des jours, dans l'ordre voulu (semaine démarrant lundi ou dimanche). */
+export function weekdayLabels(weekStart: 0 | 1 = 1): string[] {
+  const base = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+  return weekStart === 1 ? [...base.slice(1), base[0]] : base;
+}
+
+/** Vrai pour samedi et dimanche. */
+export const isWeekend = (d: Date) => d.getDay() === 0 || d.getDay() === 6;
 
 /** Clé stable d'un jour : 'YYYY-MM-DD' (sans dérive de fuseau) */
 export function toKey(d: Date): string {
@@ -34,15 +43,15 @@ export function startOfToday(): Date {
 
 export const todayKey = () => toKey(new Date());
 
-/** 42 cases (6 semaines) commençant un lundi */
-export function monthMatrix(monthDate: Date): Date[] {
-  const first = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 1 });
+/** 42 cases (6 semaines) alignées sur le premier jour de semaine choisi */
+export function monthMatrix(monthDate: Date, weekStart: 0 | 1 = 1): Date[] {
+  const first = startOfWeek(startOfMonth(monthDate), { weekStartsOn: weekStart });
   return Array.from({ length: 42 }, (_, i) => addDays(first, i));
 }
 
-/** 7 jours de la semaine (lundi → dimanche) contenant `d` */
-export function weekOf(d: Date): Date[] {
-  const first = startOfWeek(d, { weekStartsOn: 1 });
+/** Les 7 jours de la semaine contenant `d` */
+export function weekOf(d: Date, weekStart: 0 | 1 = 1): Date[] {
+  const first = startOfWeek(d, { weekStartsOn: weekStart });
   return Array.from({ length: 7 }, (_, i) => addDays(first, i));
 }
 
@@ -92,6 +101,7 @@ export const roundToQuarter = (m: number) => Math.round(m / 15) * 15;
 
 export {
   addDays,
+  getISOWeek,
   addMonths,
   differenceInCalendarDays,
   differenceInCalendarMonths,

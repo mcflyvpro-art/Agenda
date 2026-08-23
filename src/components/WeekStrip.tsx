@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 import { fromKey, isSameDay, shortDay, toKey, weekOf } from '../lib/date';
 import { tapLight } from '../lib/haptics';
-import { swatch, theme } from '../theme';
+import { theme } from '../theme';
+import { useSettings } from '../store/settings';
 import type { AgendaEvent } from '../types';
 import { Squish } from './Squish';
 
@@ -15,7 +16,8 @@ type Props = {
 
 /** Bandeau de semaine du haut de la vue Jour. */
 export function WeekStrip({ selectedKey, byDay, onSelect }: Props) {
-  const days = weekOf(fromKey(selectedKey));
+  const { settings, swatch } = useSettings();
+  const days = weekOf(fromKey(selectedKey), settings.weekStart);
   const now = new Date();
 
   return (

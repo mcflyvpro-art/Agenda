@@ -30,12 +30,32 @@ Une seule base de code, deux plateformes : **iOS** (l'utilisatrice) et **Android
 - Bascule « toute la journée », lieu, notes.
 - Suppression depuis la fiche, cases à cocher sur les cartes.
 
+**Le panneau d'affichage (⚙︎ en haut à droite)**
+
+Tout se règle en vignettes : l'aperçu montre le rendu, le texte le confirme.
+
+- **Vue Mois — 6 dispositions** : Épuré (les jours seuls) · Pastilles (un point par événement) ·
+  Teintes (la case prend la couleur) · Barres (une barre par événement) ·
+  Aperçu (les titres dans la case) · Intensité (carte de chaleur : plus foncé, plus chargé).
+- **Sous le calendrier — 3 dispositions** : le jour choisi · un agenda continu des jours à venir ·
+  rien du tout, le calendrier en plein écran.
+- **Vue Jour — 4 dispositions** : Timeline (la grille horaire) · Chronologie (les heures creuses
+  repliées en « 1 h 30 de libre », touchables pour créer) · Liste (juste les cartes) ·
+  3 jours (trois colonnes côte à côte).
+- **Plage horaire** : 0–24 h · heures actives (7–23) · automatique, calée autour des événements.
+  Dans tous les cas la plage s'élargit toute seule si un événement déborde.
+- **Densité** : compact / normal / aéré — change la hauteur d'une heure et des cases.
+- **Détail des cartes** : titre seul · + horaires · + lieu et notes.
+- **Tonalité** : la même palette en Pastel, Vif ou Doux.
+- **Et aussi** : emojis, ligne de l'heure actuelle, week-end en retrait, numéros de semaine,
+  masquer ce qui est fait, semaine qui commence lundi ou dimanche.
+
+Tous les réglages sont gardés sur le téléphone et « Par défaut » remet tout en place.
+
 **Le reste**
 - Tout est stocké **en local sur le téléphone** (aucun compte, aucun serveur, aucune donnée qui sort).
 - Retours haptiques sur chaque interaction, animations ressort, dégradé de fond, blur.
 - Interface entièrement en français.
-
----
 
 ## Tester sans rien installer
 
@@ -82,22 +102,29 @@ app.config.js               préfixe des chemins pour le build web
 src/
   theme.ts                  palette pastel (wash / solid / deep), rayons, ombres, emojis
   types.ts                  AgendaEvent, Draft
-  store/events.tsx          état global + persistance AsyncStorage
+  store/events.tsx          les événements + persistance AsyncStorage
+  store/settings.tsx        les réglages d'affichage + persistance
   lib/
     date.ts                 helpers de dates en français
+    color.ts                conversions hex/hsl pour décliner la palette
     layout.ts               répartition des événements qui se chevauchent
     haptics.ts              retours haptiques
     id.ts
   screens/CalendarScreen.tsx  l'écran unique : en-tête, bascule Mois/Jour, pager, fiche
   components/
-    MonthGrid.tsx           la grille du mois (aussi utilisée en version compacte dans la fiche)
-    DayTimeline.tsx         la timeline horaire
+    MonthGrid.tsx           la grille du mois, ses 6 dispositions
+    DayTimeline.tsx         la timeline horaire (1 ou 3 jours)
+    DayRail.tsx             la chronologie condensée
+    AgendaPanel.tsx         l'agenda continu
     WeekStrip.tsx           le bandeau de semaine
     EventCard.tsx           la carte d'événement de la liste
     EventSheet.tsx          la fiche de création / édition
+    SettingsSheet.tsx       le panneau d'affichage
+    previews.tsx            les vignettes de dispositions
     Wheel.tsx / TimeWheel.tsx  les roulettes d'heure
     Pager.tsx               pager horizontal générique
-    ModeSwitch.tsx, Toggle.tsx, Squish.tsx, AddButton.tsx, EmptyDay.tsx
+    ModeSwitch.tsx, SegmentedRow.tsx, OptionTile.tsx, Toggle.tsx,
+    Squish.tsx, AddButton.tsx, EmptyDay.tsx
 ```
 
 ## Petits réglages

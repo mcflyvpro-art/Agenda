@@ -1,0 +1,76 @@
+import React, { useState } from 'react';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { tapLight } from '../lib/haptics';
+import { theme } from '../theme';
+
+export type Option<T extends string | number> = { key: T; label: string };
+
+type Props<T extends string | number> = {
+  options: Option<T>[];
+  value: T;
+  onChange: (v: T) => void;
+};
+
+/** Sélecteur à N choix, pastille glissante — utilisé partout dans les réglages. */
+export function SegmentedRow<T extends string | number>({ options, value, onChange }: Props<T>) {
+  const [w, setW] = useState(0);
+  const idx = Math.max(0, options.findIndex((o) => o.key === value));
+  const seg = w > 0 ? (w - 6) / options.length : 0;
+
+  const pill = useAnimatedStyle(() => ({
+    width: seg,
+    transform: [{ translateX: withSpring(idx * seg, { damping: 20, stiffness: 240 }) }],
+  }));
+
+  const onLayout = (e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width);
+
+  return (
+    <View style={styles.track} onLayout={onLayout}>
+      {w > 0 && <Animated.View style={[styles.pill, pill]} />}
+      {options.map((o) => (
+        <Pressable
+          key={String(o.key)}
+          style={styles.item}
+          onPress={() => {
+            if (o.key === value) return;
+            tapLight();
+            onChange(o.key);
+          }}
+        >
+          <Text
+            numberOfLines={1}
+            style={[styles.label, o.key === value && styles.labelActive]}
+          >
+            {o.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  track: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(32,32,43,0.05)',
+    borderRadius: 14,
+    padding: 3,
+  },
+  pill: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    bottom: 3,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#5A4C7A',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  item: { flex: 1, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 2 },
+  label: { fontSize: 12.5, fontWeight: '700', color: theme.inkSoft, letterSpacing: -0.2 },
+  labelActive: { color: theme.ink },
+});

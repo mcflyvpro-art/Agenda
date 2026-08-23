@@ -1,3 +1,5 @@
+import { shift } from './lib/color';
+
 /**
  * Palette pastel — chaque teinte existe en 3 valeurs :
  *  - wash  : fond de carte, très clair
@@ -30,6 +32,42 @@ export const PALETTE: Record<ColorKey, Swatch> = {
 };
 
 export const COLOR_KEYS = Object.keys(PALETTE) as ColorKey[];
+
+/** Trois façons de porter la même palette. */
+export type Tone = 'pastel' | 'vif' | 'doux';
+
+export const TONES: { key: Tone; label: string }[] = [
+  { key: 'pastel', label: 'Pastel' },
+  { key: 'vif', label: 'Vif' },
+  { key: 'doux', label: 'Doux' },
+];
+
+/** wash / solid / deep : [facteur de saturation, décalage de luminosité] */
+const TONE_RECIPES: Record<Tone, { wash: [number, number]; solid: [number, number]; deep: [number, number] }> = {
+  pastel: { wash: [1, 0], solid: [1, 0], deep: [1, 0] },
+  vif: { wash: [1.2, -3], solid: [1.35, -9], deep: [1.2, -6] },
+  doux: { wash: [0.62, 2], solid: [0.55, 7], deep: [0.66, 5] },
+};
+
+const toneCache = new Map<Tone, Record<ColorKey, Swatch>>();
+
+export function tonedPalette(tone: Tone): Record<ColorKey, Swatch> {
+  const cached = toneCache.get(tone);
+  if (cached) return cached;
+  const recipe = TONE_RECIPES[tone] ?? TONE_RECIPES.pastel;
+  const out = {} as Record<ColorKey, Swatch>;
+  for (const key of COLOR_KEYS) {
+    const base = PALETTE[key];
+    out[key] = {
+      label: base.label,
+      wash: shift(base.wash, recipe.wash[0], recipe.wash[1]),
+      solid: shift(base.solid, recipe.solid[0], recipe.solid[1]),
+      deep: shift(base.deep, recipe.deep[0], recipe.deep[1]),
+    };
+  }
+  toneCache.set(tone, out);
+  return out;
+}
 
 export const swatch = (key: ColorKey): Swatch => PALETTE[key] ?? PALETTE.lavender;
 

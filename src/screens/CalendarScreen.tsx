@@ -1,15 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { AddButton } from '../components/AddButton';
+import { AgendaPanel } from '../components/AgendaPanel';
+import { DayRail } from '../components/DayRail';
 import { DayTimeline } from '../components/DayTimeline';
 import { EmptyDay } from '../components/EmptyDay';
 import { EventCard } from '../components/EventCard';
@@ -17,6 +13,7 @@ import { EventSheet } from '../components/EventSheet';
 import { ModeSwitch } from '../components/ModeSwitch';
 import { MonthGrid } from '../components/MonthGrid';
 import { Pager } from '../components/Pager';
+import { SettingsSheet } from '../components/SettingsSheet';
 import { Squish } from '../components/Squish';
 import { WeekStrip } from '../components/WeekStrip';
 import {
@@ -35,19 +32,21 @@ import {
   todayKey,
 } from '../lib/date';
 import { tapSoft } from '../lib/haptics';
+import { CELL_HEIGHT, DENSITY_SCALE, useSettings } from '../store/settings';
 import { useEvents } from '../store/events';
 import { COLOR_KEYS, theme } from '../theme';
 import type { AgendaEvent, Draft, ViewMode } from '../types';
 
-const MONTH_SPAN = 240; // mois avant / après le mois courant
+const MONTH_SPAN = 240;
 const MONTH_COUNT = MONTH_SPAN * 2 + 1;
-const DAY_SPAN = 730; // ~2 ans avant / après
+const DAY_SPAN = 730;
 const DAY_COUNT = DAY_SPAN * 2 + 1;
 
 export function CalendarScreen() {
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-  const { byDay, eventsOn, save, remove, toggleDone, events } = useEvents();
+  const { width } = useWindowDimensions();
+  const { byDay, save, remove, toggleDone, events } = useEvents();
+  const { settings } = useSettings();
 
   const anchorMonth = useMemo(() => startOfMonth(new Date()), []);
   const anchorDay = useMemo(() => startOfToday(), []);
@@ -56,6 +55,7 @@ export function CalendarScreen() {
   const [selectedKey, setSelectedKey] = useState(todayKey());
   const [monthIndex, setMonthIndex] = useState(MONTH_SPAN);
   const [bodyHeight, setBodyHeight] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sheet, setSheet] = useState<{ visible: boolean; draft: Draft | null }>({
     visible: false,
     draft: null,
@@ -71,8 +71,24 @@ export function CalendarScreen() {
     [selectedKey, anchorDay],
   );
 
+  // « masquer ce qui est fait » se règle ici, une fois pour toutes les vues
+  const visibleByDay = useMemo(() => {
+    if (!settings.hideDone) return byDay;
+    const out: Record<string, AgendaEvent[]> = {};
+    for (const key of Object.keys(byDay)) {
+      const kept = byDay[key].filter((e) => !e.done);
+      if (kept.length) out[key] = kept;
+    }
+    return out;
+  }, [byDay, settings.hideDone]);
+
+  const visibleOn = useCallback(
+    (key: string) => visibleByDay[key] ?? [],
+    [visibleByDay],
+  );
+
   const visibleMonth = monthForIndex(monthIndex);
-  const dayEvents = eventsOn(selectedKey);
+  const dayEvents = visibleOn(selectedKey);
   const monthCount = useMemo(() => {
     const m = visibleMonth.getMonth();
     const y = visibleMonth.getFullYear();
@@ -82,7 +98,17 @@ export function CalendarScreen() {
     }).length;
   }, [events, visibleMonth]);
 
-  const cellHeight = Math.max(46, Math.min(58, (height - 500) / 6));
+  // hauteur d'une case : la disposition donne la base, la densité l'étire,
+  // et le panneau du bas décide de ce qui reste.
+  const cellHeight = useMemo(() => {
+    const base = CELL_HEIGHT[settings.monthLayout] * DENSITY_SCALE[settings.density];
+    if (bodyHeight <= 0) return base;
+    if (settings.monthPanel === 'none') {
+      return Math.max(46, (bodyHeight - 34) / 6);
+    }
+    const roomForGrid = bodyHeight - 190;
+    return Math.max(42, Math.min(base, roomForGrid / 6));
+  }, [settings.monthLayout, settings.density, settings.monthPanel, bodyHeight]);
 
   const selectDay = useCallback(
     (key: string) => {
@@ -102,8 +128,7 @@ export function CalendarScreen() {
     (dateKey: string, start?: number): Draft => {
       const isToday = dateKey === todayKey();
       const base =
-        start ??
-        (isToday ? Math.min(23 * 60, Math.ceil(minutesNow() / 30) * 30) : 9 * 60);
+        start ?? (isToday ? Math.min(23 * 60, Math.ceil(minutesNow() / 30) * 30) : 9 * 60);
       return {
         title: '',
         emoji: '✨',
@@ -121,8 +146,9 @@ export function CalendarScreen() {
   );
 
   const openNew = useCallback(
-    (start?: number) => setSheet({ visible: true, draft: makeDraft(selectedKey, start) }),
-    [makeDraft, selectedKey],
+    (dateKey: string, start?: number) =>
+      setSheet({ visible: true, draft: makeDraft(dateKey, start) }),
+    [makeDraft],
   );
 
   const openEvent = useCallback((e: AgendaEvent) => setSheet({ visible: true, draft: e }), []);
@@ -133,6 +159,14 @@ export function CalendarScreen() {
       if (draft.date !== selectedKey) selectDay(draft.date);
     },
     [save, selectDay, selectedKey],
+  );
+
+  const createAt = useCallback(
+    (dateKey: string, minutes: number) => {
+      if (dateKey !== selectedKey) selectDay(dateKey);
+      openNew(dateKey, minutes);
+    },
+    [openNew, selectDay, selectedKey],
   );
 
   const dayLabel = relativeDayLabel(selectedKey);
@@ -148,9 +182,55 @@ export function CalendarScreen() {
 
   const isOnToday = selectedKey === todayKey() && monthIndex === MONTH_SPAN;
 
+  const renderDayPage = (i: number) => {
+    const key = toKey(dayForIndex(i));
+    const common = {
+      onOpen: openEvent,
+      onToggle: toggleDone,
+      bottomInset: insets.bottom,
+    };
+    if (settings.dayLayout === 'rail') {
+      return (
+        <DayRail
+          dateKey={key}
+          events={visibleOn(key)}
+          onCreateAt={(m) => createAt(key, m)}
+          {...common}
+        />
+      );
+    }
+    if (settings.dayLayout === 'list') {
+      const list = visibleOn(key);
+      return (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 18,
+            paddingTop: 6,
+            paddingBottom: insets.bottom + 130,
+          }}
+        >
+          {list.length === 0 ? (
+            <EmptyDay />
+          ) : (
+            list.map((e, k) => (
+              <EventCard key={e.id} event={e} index={k} onPress={openEvent} onToggle={toggleDone} />
+            ))
+          )}
+        </ScrollView>
+      );
+    }
+    const days =
+      settings.dayLayout === 'three'
+        ? [key, toKey(addDays(fromKey(key), 1)), toKey(addDays(fromKey(key), 2))]
+        : [key];
+    return (
+      <DayTimeline days={days} eventsOn={visibleOn} onCreateAt={createAt} {...common} />
+    );
+  };
+
   return (
     <View style={styles.root}>
-      {/* En-tête */}
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
         <View style={styles.headerTop}>
           <Animated.View key={headerTitle} entering={FadeIn.duration(260)} style={{ flex: 1 }}>
@@ -170,6 +250,17 @@ export function CalendarScreen() {
               </Squish>
             </Animated.View>
           )}
+
+          <Squish
+            style={styles.iconBtn}
+            scaleTo={0.88}
+            onPress={() => {
+              tapSoft();
+              setSettingsOpen(true);
+            }}
+          >
+            <Ionicons name="options-outline" size={19} color={theme.inkSoft} />
+          </Squish>
         </View>
 
         <View style={styles.headerBottom}>
@@ -199,95 +290,103 @@ export function CalendarScreen() {
         </View>
       </View>
 
-      {/* Contenu */}
       {mode === 'month' ? (
-        <Animated.View key="month" entering={FadeIn.duration(240)} style={styles.flex}>
-          <View style={{ height: cellHeight * 6 + 26 }}>
-            <Pager
-              count={MONTH_COUNT}
-              index={monthIndex}
-              width={width}
-              onIndexChange={setMonthIndex}
-              renderPage={(i) => (
-                <View style={styles.monthPage}>
-                  <MonthGrid
-                    month={monthForIndex(i)}
-                    selectedKey={selectedKey}
-                    byDay={byDay}
-                    onSelect={selectDay}
-                    cellHeight={cellHeight}
-                  />
-                </View>
-              )}
-            />
-          </View>
-
-          <View style={styles.listHeader}>
-            <Text style={styles.listTitle}>{relativeDayLabel(selectedKey)}</Text>
-            <View style={styles.listRule} />
-            <Text style={styles.listCount}>{dayEvents.length}</Text>
-          </View>
-
-          <ScrollView
+        <View style={styles.flex} onLayout={(e) => setBodyHeight(e.nativeEvent.layout.height)}>
+          <Animated.View
+            key={`month-${settings.monthLayout}-${settings.monthPanel}-${settings.density}`}
+            entering={FadeIn.duration(260)}
             style={styles.flex}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: insets.bottom + 120 }}
           >
-            <Animated.View key={selectedKey} entering={FadeInDown.duration(280)} layout={LinearTransition}>
-              {dayEvents.length === 0 ? (
-                <EmptyDay />
-              ) : (
-                dayEvents.map((e, i) => (
-                  <EventCard
-                    key={e.id}
-                    event={e}
-                    index={i}
-                    onPress={openEvent}
-                    onToggle={toggleDone}
-                  />
-                ))
-              )}
-            </Animated.View>
-          </ScrollView>
-        </Animated.View>
+            <View style={{ height: cellHeight * 6 + 26 }}>
+              <Pager
+                count={MONTH_COUNT}
+                index={monthIndex}
+                width={width}
+                onIndexChange={setMonthIndex}
+                renderPage={(i) => (
+                  <View style={styles.monthPage}>
+                    <MonthGrid
+                      month={monthForIndex(i)}
+                      selectedKey={selectedKey}
+                      byDay={visibleByDay}
+                      onSelect={selectDay}
+                      cellHeight={cellHeight}
+                    />
+                  </View>
+                )}
+              />
+            </View>
+
+            {settings.monthPanel === 'day' && (
+              <>
+                <View style={styles.listHeader}>
+                  <Text style={styles.listTitle}>{dayLabel}</Text>
+                  <View style={styles.listRule} />
+                  <Text style={styles.listCount}>{dayEvents.length}</Text>
+                </View>
+                <ScrollView
+                  style={styles.flex}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{
+                    paddingHorizontal: 18,
+                    paddingBottom: insets.bottom + 120,
+                  }}
+                >
+                  <Animated.View
+                    key={selectedKey}
+                    entering={FadeInDown.duration(280)}
+                    layout={LinearTransition}
+                  >
+                    {dayEvents.length === 0 ? (
+                      <EmptyDay />
+                    ) : (
+                      dayEvents.map((e, i) => (
+                        <EventCard
+                          key={e.id}
+                          event={e}
+                          index={i}
+                          onPress={openEvent}
+                          onToggle={toggleDone}
+                        />
+                      ))
+                    )}
+                  </Animated.View>
+                </ScrollView>
+              </>
+            )}
+
+            {settings.monthPanel === 'agenda' && (
+              <AgendaPanel
+                fromDate={selectedKey}
+                byDay={visibleByDay}
+                onOpen={openEvent}
+                onToggle={toggleDone}
+                bottomInset={insets.bottom}
+              />
+            )}
+          </Animated.View>
+        </View>
       ) : (
         <Animated.View key="day" entering={FadeIn.duration(240)} style={styles.flex}>
-          <WeekStrip selectedKey={selectedKey} byDay={byDay} onSelect={selectDay} />
-          <View
-            style={styles.flex}
-            onLayout={(e) => setBodyHeight(e.nativeEvent.layout.height)}
-          >
+          <WeekStrip selectedKey={selectedKey} byDay={visibleByDay} onSelect={selectDay} />
+          <View style={styles.flex} onLayout={(e) => setBodyHeight(e.nativeEvent.layout.height)}>
             {bodyHeight > 0 && (
-          <Pager
-            count={DAY_COUNT}
-            index={dayIndex}
-            width={width}
-            pageHeight={bodyHeight}
-            style={styles.flex}
-            onIndexChange={(i) => selectDay(toKey(dayForIndex(i)))}
-            renderPage={(i) => {
-              const key = toKey(dayForIndex(i));
-              return (
-                <DayTimeline
-                  dateKey={key}
-                  events={eventsOn(key)}
-                  onCreateAt={(m) => {
-                    if (key !== selectedKey) selectDay(key);
-                    setSheet({ visible: true, draft: makeDraft(key, m) });
-                  }}
-                  onOpen={openEvent}
-                  onToggle={toggleDone}
-                  bottomInset={insets.bottom}
-                />
-              );
-            }}
-          />
+              <Pager
+                key={settings.dayLayout}
+                count={DAY_COUNT}
+                index={dayIndex}
+                width={width}
+                pageHeight={bodyHeight}
+                style={styles.flex}
+                onIndexChange={(i) => selectDay(toKey(dayForIndex(i)))}
+                renderPage={renderDayPage}
+              />
             )}
           </View>
         </Animated.View>
       )}
 
-      <AddButton onPress={() => openNew()} bottom={insets.bottom + 22} />
+      <AddButton onPress={() => openNew(selectedKey)} bottom={insets.bottom + 22} />
 
       <EventSheet
         visible={sheet.visible}
@@ -297,6 +396,8 @@ export function CalendarScreen() {
         onSave={handleSave}
         onDelete={remove}
       />
+
+      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </View>
   );
 }
@@ -305,7 +406,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 10 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { fontSize: 30, fontWeight: '800', color: theme.ink, letterSpacing: -0.9 },
   subtitle: {
     fontSize: 13,
@@ -324,6 +425,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(142,124,232,0.12)',
   },
   todayText: { fontSize: 13, fontWeight: '700', color: theme.accent, letterSpacing: -0.2 },
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    ...theme.shadow.soft,
+  },
   headerBottom: {
     flexDirection: 'row',
     alignItems: 'center',
