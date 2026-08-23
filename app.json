@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Agenda",
+    "slug": "agenda",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "agenda",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FBF8FC",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FBF8FC"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.agenda.pastel"
+    },
+    "android": {
+      "package": "com.agenda.pastel",
+      "adaptiveIcon": {
+        "backgroundColor": "#FBF8FC",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    }
+  }
+}
