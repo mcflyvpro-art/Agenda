@@ -41,11 +41,21 @@ type Props = {
   onClose: () => void;
   onSave: (d: Draft) => void;
   onDelete: (id: string) => void;
+  /** remplace le titre de la feuille (ex. quand l'événement vient d'une idée) */
+  heading?: string;
 };
 
 type Section = 'date' | 'start' | 'end' | 'emoji' | null;
 
-export function EventSheet({ visible, draft, byDay, onClose, onSave, onDelete }: Props) {
+export function EventSheet({
+  visible,
+  draft,
+  byDay,
+  onClose,
+  onSave,
+  onDelete,
+  heading,
+}: Props) {
   const { height } = useWindowDimensions();
   const [d, setD] = useState<Draft | null>(draft);
   const [section, setSection] = useState<Section>(null);
@@ -179,7 +189,7 @@ export function EventSheet({ visible, draft, byDay, onClose, onSave, onDelete }:
                 <Text style={styles.cancel}>Annuler</Text>
               </Squish>
               <Text style={styles.topTitle}>
-                {isEditing ? "L'événement" : 'Nouvel événement'}
+                {heading ?? (isEditing ? "L'événement" : 'Nouvel événement')}
               </Text>
               <Squish
                 onPress={submit}

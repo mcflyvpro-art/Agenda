@@ -10,7 +10,33 @@ Une seule base de code, deux plateformes : **iOS** (l'utilisatrice) et **Android
 
 ## Ce que fait l'app
 
-### Cinq échelles de temps
+L'app tient en trois écrans, une barre en bas pour passer de l'un à l'autre.
+
+### Accueil
+
+Le premier écran répond à une seule question : **c'est quoi, aujourd'hui ?**
+
+- Un salut selon l'heure, la date en toutes lettres.
+- La journée ramassée en **une barre** : où sont les blocs, où sont les trous,
+  où en est-on. On la lit sans faire défiler.
+- **Ensuite** : le prochain moment mis en avant, avec le temps qui reste
+  (« dans 1 h 20 », « en cours »). Sinon, une invitation à caler quelque chose.
+- **Ta journée** : les cartes du jour.
+- **À faire** : les trois idées en attente, avec un lien vers la boîte.
+
+### À faire — la boîte à idées
+
+Un fourre-tout assumé pour ce qui n'a pas encore de place.
+
+- Un champ tout en haut : on écrit, on valide, c'est rangé. L'emoji et la couleur
+  sont devinés au passage.
+- Chaque idée porte une durée pressentie (15 min, 30 min, 1 h, 2 h).
+- Le bouton **Placer** ouvre la fiche d'événement déjà remplie — titre, emoji,
+  couleur, durée — il ne reste qu'à choisir le jour et l'heure. Une fois posée
+  dans le calendrier, l'idée sort de la boîte.
+- Les idées cochées descendent dans une section « terminées », qu'on peut vider.
+
+### Agenda — cinq échelles de temps
 
 C'est le vrai choix de disposition : chaque échelle est une lecture différente,
 pas la même grille repeinte.
@@ -39,10 +65,12 @@ détail des cartes (titre seul → horaires → lieu et notes).
 
 ### Les couleurs
 
-Cinq jeux de couleurs complets, pas des variantes de saturation : **Pastel** (doux, laiteux),
-**Sorbet** (franc, joyeux), **Brume** (sourd, minimal), **Terre** (chaud, naturel),
-**Encre** (froid, contrasté). Chacun habille aussi le fond de l'app, le bouton +, la couleur
-d'aujourd'hui.
+L'app porte un seul habillage, **Sorbet** : franc, joyeux, chaud. Il tient le fond, le
+bouton +, la couleur d'aujourd'hui et les neuf teintes d'événements. Pas de sélecteur de
+thème — c'est la couleur de la maison.
+
+(`src/palettes.ts` en contient quatre autres, générées par la même recette : Pastel, Brume,
+Terre, Encre. Changer de teinte de maison tient en une ligne dans `src/store/settings.tsx`.)
 
 Chaque teinte existe en trois valeurs — un fond très clair, une pastille, un texte — et
 `scripts/gen-palettes.mjs` les génère en assombrissant automatiquement chaque teinte jusqu'à
@@ -61,8 +89,8 @@ pour la cocher.
 
 ### Les réglages
 
-Un bouton en haut à droite, trois onglets — **Vues**, **Couleurs**, **Confort** — pour que
-chaque écran reste court. Les dispositions se choisissent en vignettes : chaque option dessine
+Un bouton en haut à droite, deux onglets — **Vues** et **Confort** — pour que chaque écran
+reste court. Les dispositions se choisissent en vignettes : chaque option dessine
 son propre rendu en miniature, avec les couleurs du moment.
 
 Le reste : emojis, ligne de l'heure actuelle, week-end en retrait, numéros de semaine,
@@ -117,6 +145,7 @@ src/
   theme.ts                  palette pastel (wash / solid / deep), rayons, ombres, emojis
   types.ts                  AgendaEvent, Draft
   store/events.tsx          les événements + persistance AsyncStorage
+  store/todos.tsx           la boîte à idées + persistance
   store/settings.tsx        les réglages d'affichage + persistance
   palettes.ts               les 5 jeux de couleurs (généré, contrastes vérifiés)
   lib/
@@ -126,8 +155,15 @@ src/
     layout.ts               répartition des événements qui se chevauchent
     haptics.ts              retours haptiques
     id.ts
-  screens/CalendarScreen.tsx  l'écran unique : en-tête, bascule Mois/Jour, pager, fiche
+  screens/
+    RootScreen.tsx          les trois onglets et les feuilles partagées
+    HomeScreen.tsx          le résumé du jour
+    CalendarScreen.tsx      l'agenda et ses cinq échelles
+    TodoScreen.tsx          la boîte à idées
   components/
+    DayBar.tsx              la journée en une barre
+    TabBar.tsx              la barre du bas
+    TodoCard.tsx / TodoSheet.tsx  la boîte à idées
     YearGrid.tsx            les douze mois de l'année
     MonthGrid.tsx           la grille du mois et ses cinq façons de remplir une case
     DayTimeline.tsx         la grille horaire, de 1 à 7 colonnes
@@ -146,7 +182,8 @@ src/
 
 ## Petits réglages
 
-- **Événements d'exemple** au premier lancement : `SEED_ON_FIRST_LAUNCH` dans `src/store/events.tsx`.
+- **Exemples au premier lancement** : `SEED_ON_FIRST_LAUNCH` dans `src/store/events.tsx`
+  et `src/store/todos.tsx`.
 - **Couleurs** : les recettes sont dans `scripts/gen-palettes.mjs` ; `node scripts/gen-palettes.mjs`
   régénère `src/palettes.ts` et affiche les contrastes obtenus.
 - **Hauteur d'une heure** dans la vue Jour : `HOUR_H` dans `src/components/DayTimeline.tsx`.

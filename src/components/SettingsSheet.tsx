@@ -19,12 +19,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { notifySuccess, tapLight, tapSoft } from '../lib/haptics';
-import { PALETTE_KEYS, PALETTES } from '../palettes';
 import { useSettings } from '../store/settings';
 import type { DayLayout, MonthCells, MonthPanel, WeekLayout } from '../store/settings';
 import { theme } from '../theme';
 import { OptionTile } from './OptionTile';
-import { DayPreview, MonthPreview, PalettePreview, PanelPreview, WeekPreview } from './previews';
+import { DayPreview, MonthPreview, PanelPreview, WeekPreview } from './previews';
 import { SegmentedRow } from './SegmentedRow';
 import { Squish } from './Squish';
 import { Toggle } from './Toggle';
@@ -55,7 +54,7 @@ const DAY_TILES: { key: DayLayout; label: string; hint: string }[] = [
   { key: 'list', label: 'Liste', hint: 'juste les cartes' },
 ];
 
-type Tab = 'views' | 'colors' | 'comfort';
+type Tab = 'views' | 'comfort';
 
 type Props = { visible: boolean; onClose: () => void };
 
@@ -152,7 +151,6 @@ export function SettingsSheet({ visible, onClose }: Props) {
               onChange={setTab}
               options={[
                 { key: 'views', label: 'Vues' },
-                { key: 'colors', label: 'Couleurs' },
                 { key: 'comfort', label: 'Confort' },
               ]}
             />
@@ -252,48 +250,6 @@ export function SettingsSheet({ visible, onClose }: Props) {
                 </>
               )}
 
-              {tab === 'colors' && (
-                <>
-                  <Section title="Jeu de couleurs" sub="Il habille aussi le fond de l'app">
-                    <Tiles>
-                      {PALETTE_KEYS.map((k) => (
-                        <View key={k} style={styles.tileHalf}>
-                          <OptionTile
-                            label={PALETTES[k].label}
-                            hint={PALETTES[k].note}
-                            selected={settings.palette === k}
-                            onPress={() => update({ palette: k })}
-                          >
-                            <PalettePreview palette={PALETTES[k]} />
-                          </OptionTile>
-                        </View>
-                      ))}
-                    </Tiles>
-                  </Section>
-
-                  <Section title="Sur les événements">
-                    <View style={styles.card}>
-                      <SwitchRow
-                        icon="color-wand-outline"
-                        label="Deviner couleur et emoji"
-                        hint="d'après ce que tu écris"
-                        value={settings.autoColor}
-                        accent={ui.accent}
-                        onChange={(autoColor) => update({ autoColor })}
-                      />
-                      <View style={styles.divider} />
-                      <SwitchRow
-                        icon="happy-outline"
-                        label="Afficher les emojis"
-                        value={settings.showEmoji}
-                        accent={ui.accent}
-                        onChange={(showEmoji) => update({ showEmoji })}
-                      />
-                    </View>
-                  </Section>
-                </>
-              )}
-
               {tab === 'comfort' && (
                 <>
                   <Section title="Lecture">
@@ -321,6 +277,27 @@ export function SettingsSheet({ visible, onClose }: Props) {
                           ]}
                         />
                       </Field>
+                    </View>
+                  </Section>
+
+                  <Section title="Sur les événements">
+                    <View style={styles.card}>
+                      <SwitchRow
+                        icon="color-wand-outline"
+                        label="Deviner couleur et emoji"
+                        hint="d'après ce que tu écris"
+                        value={settings.autoColor}
+                        accent={ui.accent}
+                        onChange={(autoColor) => update({ autoColor })}
+                      />
+                      <View style={styles.divider} />
+                      <SwitchRow
+                        icon="happy-outline"
+                        label="Afficher les emojis"
+                        value={settings.showEmoji}
+                        accent={ui.accent}
+                        onChange={(showEmoji) => update({ showEmoji })}
+                      />
                     </View>
                   </Section>
 

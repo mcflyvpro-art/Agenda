@@ -4,8 +4,9 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { CalendarScreen } from './src/screens/CalendarScreen';
+import { RootScreen } from './src/screens/RootScreen';
 import { EventsProvider } from './src/store/events';
+import { TodosProvider } from './src/store/todos';
 import { SettingsProvider, useSettings } from './src/store/settings';
 
 export default function App() {
@@ -14,8 +15,10 @@ export default function App() {
       <SafeAreaProvider>
         <SettingsProvider>
           <EventsProvider>
-            <Backdrop />
-            <StatusBar style="dark" />
+            <TodosProvider>
+              <Backdrop />
+              <StatusBar style="dark" />
+            </TodosProvider>
           </EventsProvider>
         </SettingsProvider>
       </SafeAreaProvider>
@@ -35,7 +38,7 @@ function Backdrop() {
         end={{ x: 0.9, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <CalendarScreen />
+      <RootScreen />
     </View>
   );
 }

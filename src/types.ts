@@ -22,4 +22,23 @@ export type Draft = Omit<AgendaEvent, 'id' | 'createdAt'> & {
   createdAt?: number;
 };
 
-export type ViewMode = 'month' | 'day';
+/**
+ * Une idée jetée en vrac : pas de date, pas d'heure.
+ * Elle attend dans la boîte jusqu'à ce qu'on décide de lui donner un créneau.
+ */
+export type Todo = {
+  id: string;
+  title: string;
+  emoji: string;
+  color: ColorKey;
+  notes: string;
+  done: boolean;
+  /** durée pressentie, en minutes — sert à pré-remplir le créneau */
+  estimate: number;
+  createdAt: number;
+};
+
+export type TodoDraft = Omit<Todo, 'id' | 'createdAt'> & {
+  id?: string;
+  createdAt?: number;
+};

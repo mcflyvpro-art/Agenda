@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { PALETTES, type PaletteKey } from '../palettes';
+import { PALETTES } from '../palettes';
 import type { ColorKey, Swatch } from '../theme';
 
 const STORAGE_KEY = 'agenda.settings.v2';
@@ -34,7 +34,6 @@ export type Settings = {
   dayRange: DayRange;
   density: Density;
   detail: Detail;
-  palette: PaletteKey;
   autoColor: boolean;
   showEmoji: boolean;
   showNowLine: boolean;
@@ -53,7 +52,6 @@ export const DEFAULTS: Settings = {
   dayRange: 'full',
   density: 'normal',
   detail: 'normal',
-  palette: 'pastel',
   autoColor: true,
   showEmoji: true,
   showNowLine: true,
@@ -137,15 +135,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const palette = useMemo(
-    () => PALETTES[settings.palette] ?? PALETTES.pastel,
-    [settings.palette],
-  );
+  // Un seul habillage, assumé : Sorbet.
+  const palette = PALETTES.sorbet;
 
-  const swatch = useCallback(
-    (key: ColorKey) => palette.colors[key] ?? palette.colors.lavender,
-    [palette],
-  );
+  const swatch = useCallback((key: ColorKey) => palette.colors[key] ?? palette.colors.lavender, [
+    palette,
+  ]);
 
   const ui = useMemo<UiColors>(
     () => ({ accent: palette.accent, today: palette.today, gradient: palette.gradient }),

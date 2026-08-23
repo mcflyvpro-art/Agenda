@@ -1,19 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { AddButton } from '../components/AddButton';
 import { DayRail } from '../components/DayRail';
 import { DayTimeline } from '../components/DayTimeline';
 import { EmptyDay } from '../components/EmptyDay';
 import { EventCard } from '../components/EventCard';
-import { EventSheet } from '../components/EventSheet';
 import { MonthGrid } from '../components/MonthGrid';
 import { Pager } from '../components/Pager';
 import { PlannerList } from '../components/PlannerList';
 import { SegmentedRow } from '../components/SegmentedRow';
-import { SettingsSheet } from '../components/SettingsSheet';
 import { Squish } from '../components/Squish';
 import { WeekStrip } from '../components/WeekStrip';
 import { YearGrid } from '../components/YearGrid';
@@ -41,7 +38,7 @@ import { CELL_HEIGHT, DENSITY_SCALE, useSettings } from '../store/settings';
 import type { Scale } from '../store/settings';
 import { useEvents } from '../store/events';
 import { COLOR_KEYS, theme } from '../theme';
-import type { AgendaEvent, Draft } from '../types';
+import type { AgendaEvent } from '../types';
 
 const MONTH_SPAN = 240;
 const MONTH_COUNT = MONTH_SPAN * 2 + 1;
@@ -60,10 +57,26 @@ const SCALES: { key: Scale; label: string }[] = [
   { key: 'list', label: 'Liste' },
 ];
 
-export function CalendarScreen() {
+type Props = {
+  selectedKey: string;
+  onSelectDay: (key: string) => void;
+  onOpenEvent: (e: AgendaEvent) => void;
+  onCreateAt: (dateKey: string, minutes?: number) => void;
+  onOpenSettings: () => void;
+  bottomInset: number;
+};
+
+export function CalendarScreen({
+  selectedKey,
+  onSelectDay,
+  onOpenEvent,
+  onCreateAt,
+  onOpenSettings,
+  bottomInset,
+}: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { byDay, save, remove, toggleDone, events } = useEvents();
+  const { byDay, toggleDone, events } = useEvents();
   const { settings, update, ui } = useSettings();
   const scale = settings.scale;
 
@@ -75,16 +88,10 @@ export function CalendarScreen() {
   );
   const anchorYear = useMemo(() => new Date().getFullYear(), []);
 
-  const [selectedKey, setSelectedKey] = useState(todayKey());
   const [monthIndex, setMonthIndex] = useState(MONTH_SPAN);
   const [yearIndex, setYearIndex] = useState(YEAR_SPAN);
   const [bodyHeight, setBodyHeight] = useState(0);
   const [dayHeight, setDayHeight] = useState(0);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [sheet, setSheet] = useState<{ visible: boolean; draft: Draft | null }>({
-    visible: false,
-    draft: null,
-  });
 
   // « masquer ce qui est fait » se règle ici, une fois pour toutes les vues
   const visibleByDay = useMemo(() => {
@@ -140,15 +147,14 @@ export function CalendarScreen() {
     return Math.max(42, Math.min(base, (bodyHeight - 190) / 6));
   }, [settings.monthCells, settings.density, settings.monthPanel, bodyHeight]);
 
-  const selectDay = useCallback(
-    (key: string) => {
-      setSelectedKey(key);
-      const diff = differenceInCalendarMonths(startOfMonth(fromKey(key)), anchorMonth);
-      setMonthIndex(MONTH_SPAN + diff);
-      setYearIndex(YEAR_SPAN + (fromKey(key).getFullYear() - anchorYear));
-    },
-    [anchorMonth, anchorYear],
-  );
+  const selectDay = onSelectDay;
+
+  // le jour choisi peut venir d'ailleurs (accueil, création) : les pages suivent
+  useEffect(() => {
+    const d = fromKey(selectedKey);
+    setMonthIndex(MONTH_SPAN + differenceInCalendarMonths(startOfMonth(d), anchorMonth));
+    setYearIndex(YEAR_SPAN + (d.getFullYear() - anchorYear));
+  }, [selectedKey, anchorMonth, anchorYear]);
 
   const goToday = useCallback(() => {
     tapSoft();
@@ -162,50 +168,8 @@ export function CalendarScreen() {
     [update],
   );
 
-  const makeDraft = useCallback(
-    (dateKey: string, start?: number): Draft => {
-      const isToday = dateKey === todayKey();
-      const base =
-        start ?? (isToday ? Math.min(23 * 60, Math.ceil(minutesNow() / 30) * 30) : 9 * 60);
-      return {
-        title: '',
-        emoji: '✨',
-        color: COLOR_KEYS[events.length % COLOR_KEYS.length],
-        date: dateKey,
-        start: base,
-        end: Math.min(1440, base + 60),
-        allDay: false,
-        location: '',
-        notes: '',
-        done: false,
-      };
-    },
-    [events.length],
-  );
-
-  const openNew = useCallback(
-    (dateKey: string, start?: number) =>
-      setSheet({ visible: true, draft: makeDraft(dateKey, start) }),
-    [makeDraft],
-  );
-
-  const openEvent = useCallback((e: AgendaEvent) => setSheet({ visible: true, draft: e }), []);
-
-  const handleSave = useCallback(
-    (draft: Draft) => {
-      save(draft);
-      if (draft.date !== selectedKey) selectDay(draft.date);
-    },
-    [save, selectDay, selectedKey],
-  );
-
-  const createAt = useCallback(
-    (dateKey: string, minutes: number) => {
-      if (dateKey !== selectedKey) selectDay(dateKey);
-      openNew(dateKey, minutes);
-    },
-    [openNew, selectDay, selectedKey],
-  );
+  const createAt = onCreateAt;
+  const openEvent = onOpenEvent;
 
   // ---- en-tête -------------------------------------------------------------
 
@@ -275,7 +239,7 @@ export function CalendarScreen() {
   // ---- corps ---------------------------------------------------------------
 
   const dayPage = (key: string) => {
-    const common = { onOpen: openEvent, onToggle: toggleDone, bottomInset: insets.bottom };
+    const common = { onOpen: openEvent, onToggle: toggleDone, bottomInset };
     if (settings.dayLayout === 'rail') {
       return (
         <DayRail
@@ -294,7 +258,7 @@ export function CalendarScreen() {
           contentContainerStyle={{
             paddingHorizontal: 18,
             paddingTop: 6,
-            paddingBottom: insets.bottom + 130,
+            paddingBottom: bottomInset + 30,
           }}
         >
           {list.length === 0 ? (
@@ -332,7 +296,7 @@ export function CalendarScreen() {
                 <YearGrid
                   year={anchorYear + (i - YEAR_SPAN)}
                   byDay={visibleByDay}
-                  bottomInset={insets.bottom}
+                  bottomInset={bottomInset}
                   available={bodyHeight}
                   onPickMonth={(m) => {
                     setMonthIndex(MONTH_SPAN + differenceInCalendarMonths(m, anchorMonth));
@@ -362,7 +326,7 @@ export function CalendarScreen() {
                     onCreateAt={createAt}
                     onOpen={openEvent}
                     onToggle={toggleDone}
-                    bottomInset={insets.bottom}
+                    bottomInset={bottomInset}
                   />
                 );
               }}
@@ -388,7 +352,7 @@ export function CalendarScreen() {
                     byDay={visibleByDay}
                     onOpen={openEvent}
                     onToggle={toggleDone}
-                    bottomInset={insets.bottom}
+                    bottomInset={bottomInset}
                     keepEmpty
                   />
                 );
@@ -400,7 +364,7 @@ export function CalendarScreen() {
                   onCreateAt={createAt}
                   onOpen={openEvent}
                   onToggle={toggleDone}
-                  bottomInset={insets.bottom}
+                  bottomInset={bottomInset}
                 />
               );
             }}
@@ -440,7 +404,7 @@ export function CalendarScreen() {
             byDay={visibleByDay}
             onOpen={openEvent}
             onToggle={toggleDone}
-            bottomInset={insets.bottom}
+            bottomInset={bottomInset}
             monthHeaders
             emptyLabel="Rien de prévu dans les six prochains mois."
           />
@@ -482,7 +446,7 @@ export function CalendarScreen() {
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={{
                     paddingHorizontal: 18,
-                    paddingBottom: insets.bottom + 120,
+                    paddingBottom: bottomInset + 30,
                   }}
                 >
                   {dayEvents.length === 0 ? (
@@ -508,7 +472,7 @@ export function CalendarScreen() {
                 byDay={visibleByDay}
                 onOpen={openEvent}
                 onToggle={toggleDone}
-                bottomInset={insets.bottom}
+                bottomInset={bottomInset}
               />
             )}
           </>
@@ -547,7 +511,7 @@ export function CalendarScreen() {
             scaleTo={0.88}
             onPress={() => {
               tapSoft();
-              setSettingsOpen(true);
+              onOpenSettings();
             }}
           >
             <Ionicons name="options-outline" size={19} color={theme.inkSoft} />
@@ -569,18 +533,6 @@ export function CalendarScreen() {
         </Animated.View>
       </View>
 
-      <AddButton onPress={() => openNew(selectedKey)} bottom={insets.bottom + 22} />
-
-      <EventSheet
-        visible={sheet.visible}
-        draft={sheet.draft}
-        byDay={visibleByDay}
-        onClose={() => setSheet((s) => ({ ...s, visible: false }))}
-        onSave={handleSave}
-        onDelete={remove}
-      />
-
-      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </View>
   );
 }
