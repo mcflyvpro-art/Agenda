@@ -16,7 +16,7 @@ type Props = {
 
 /** Bandeau de semaine du haut de la vue Jour. */
 export function WeekStrip({ selectedKey, byDay, onSelect }: Props) {
-  const { settings, swatch } = useSettings();
+  const { settings, swatch, ui } = useSettings();
   const days = weekOf(fromKey(selectedKey), settings.weekStart);
   const now = new Date();
 
@@ -48,14 +48,14 @@ export function WeekStrip({ selectedKey, byDay, onSelect }: Props) {
                   entering={ZoomIn.springify().damping(13).stiffness(220)}
                   style={[
                     styles.bubble,
-                    { backgroundColor: isToday ? theme.today : theme.ink },
+                    { backgroundColor: isToday ? ui.today : theme.ink },
                   ]}
                 />
               )}
               <Text
                 style={[
                   styles.num,
-                  isToday && !selected && { color: theme.today, fontWeight: '800' },
+                  isToday && !selected && { color: ui.today, fontWeight: '800' },
                   selected && { color: '#FFFFFF', fontWeight: '800' },
                 ]}
               >

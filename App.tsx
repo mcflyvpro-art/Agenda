@@ -6,8 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { EventsProvider } from './src/store/events';
-import { SettingsProvider } from './src/store/settings';
-import { theme } from './src/theme';
+import { SettingsProvider, useSettings } from './src/store/settings';
 
 export default function App() {
   return (
@@ -15,16 +14,7 @@ export default function App() {
       <SafeAreaProvider>
         <SettingsProvider>
           <EventsProvider>
-            <View style={styles.root}>
-              <LinearGradient
-                colors={theme.bgGradient}
-                locations={[0, 0.55, 1]}
-                start={{ x: 0.1, y: 0 }}
-                end={{ x: 0.9, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <CalendarScreen />
-            </View>
+            <Backdrop />
             <StatusBar style="dark" />
           </EventsProvider>
         </SettingsProvider>
@@ -33,6 +23,23 @@ export default function App() {
   );
 }
 
+/** Le fond suit le jeu de couleurs choisi. */
+function Backdrop() {
+  const { ui } = useSettings();
+  return (
+    <View style={[styles.root, { backgroundColor: ui.gradient[0] }]}>
+      <LinearGradient
+        colors={ui.gradient}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <CalendarScreen />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.bg },
+  root: { flex: 1 },
 });

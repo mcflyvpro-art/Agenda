@@ -50,7 +50,7 @@ export function DayTimeline({
   onToggle,
   bottomInset = 0,
 }: Props) {
-  const { settings, swatch } = useSettings();
+  const { settings, swatch, ui } = useSettings();
   const { width } = useWindowDimensions();
   const scroller = useRef<ScrollView>(null);
   const tapLayer = useRef<View>(null);
@@ -69,6 +69,7 @@ export function DayTimeline({
   const isToday = todayIndex >= 0;
   const nowMin = minutesNow();
   const showNow = settings.showNowLine && isToday;
+  const nowTop = ((nowMin - startHour * 60) / 60) * HOUR_H;
 
   const trackWidth = width - GUTTER - 14;
   const colWidth = trackWidth / days.length;
@@ -132,11 +133,37 @@ export function DayTimeline({
             const today = key === todayKey();
             return (
               <View key={key} style={{ width: colWidth, alignItems: 'center' }}>
-                <Text style={[styles.colDay, today && { color: theme.today }]}>{shortDay(d)}</Text>
-                <Text style={[styles.colNum, today && { color: theme.today }]}>{d.getDate()}</Text>
+                <Text style={[styles.colDay, today && { color: ui.today }]}>{shortDay(d)}</Text>
+                <Text style={[styles.colNum, today && { color: ui.today }]}>{d.getDate()}</Text>
               </View>
             );
           })}
+        </View>
+      )}
+
+      {multi && days.some((k) => allDayFor(k).length > 0) && (
+        <View style={[styles.allDayStrip, { paddingLeft: GUTTER }]}>
+          {days.map((key) => (
+            <View key={key} style={{ width: colWidth, paddingRight: 3, gap: 2 }}>
+              {allDayFor(key).slice(0, 2).map((e) => {
+                const c = swatch(e.color);
+                return (
+                  <Squish
+                    key={e.id}
+                    onPress={() => {
+                      tapSoft();
+                      onOpen(e);
+                    }}
+                    style={[styles.allDayMini, { backgroundColor: c.wash }]}
+                  >
+                    <Text numberOfLines={1} style={[styles.allDayMiniText, { color: c.deep }]}>
+                      {e.title}
+                    </Text>
+                  </Squish>
+                );
+              })}
+            </View>
+          ))}
         </View>
       )}
 
@@ -284,19 +311,31 @@ export function DayTimeline({
           })}
 
           {showNow && (
-            <Animated.View
-              entering={FadeIn.duration(500)}
-              style={[
-                styles.nowLine,
-                { top: ((nowMin - startHour * 60) / 60) * HOUR_H - 1 },
-              ]}
-            >
-              <View style={styles.nowBadge}>
-                <Text style={styles.nowBadgeText}>{hhmm(nowMin)}</Text>
+            <Animated.View entering={FadeIn.duration(500)} style={StyleSheet.absoluteFill}>
+              <View style={[styles.nowBadge, { top: nowTop - 8 }]}>
+                <Text style={[styles.nowBadgeText, { color: ui.today }]}>{hhmm(nowMin)}</Text>
               </View>
-              {multi && todayIndex > 0 && <View style={{ width: todayIndex * colWidth }} />}
-              <View style={styles.nowDot} />
-              <View style={[styles.nowStroke, multi && { flex: 0, width: colWidth - 8 }]} />
+              <View
+                style={[
+                  styles.nowStroke,
+                  {
+                    top: nowTop,
+                    left: GUTTER + Math.max(0, todayIndex) * colWidth,
+                    width: colWidth - (multi ? 3 : 0),
+                    backgroundColor: ui.today,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.nowDot,
+                  {
+                    top: nowTop - 3.5,
+                    left: GUTTER + Math.max(0, todayIndex) * colWidth - 4,
+                    backgroundColor: ui.today,
+                  },
+                ]}
+              />
             </Animated.View>
           )}
         </View>
@@ -356,17 +395,11 @@ const styles = StyleSheet.create({
   eventEmoji: { fontSize: 13 },
   eventTitle: { flex: 1, fontSize: 13.5, fontWeight: '700', letterSpacing: -0.2 },
   eventTime: { fontSize: 11.5, fontWeight: '600', marginTop: 2, opacity: 0.85 },
-  nowLine: {
-    position: 'absolute',
-    zIndex: 5,
-    left: 0,
-    right: 14,
-    height: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  nowBadge: { width: GUTTER, alignItems: 'flex-end', paddingRight: 7 },
-  nowBadgeText: { fontSize: 11, fontWeight: '800', color: theme.today, letterSpacing: -0.2 },
-  nowDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.today },
-  nowStroke: { flex: 1, height: 1.6, backgroundColor: theme.today, opacity: 0.65 },
+  nowBadge: { position: 'absolute', left: 0, width: GUTTER, alignItems: 'flex-end', paddingRight: 7 },
+  nowBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: -0.2 },
+  nowDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4 },
+  nowStroke: { position: 'absolute', height: 1.6, opacity: 0.7, borderRadius: 1 },
+  allDayStrip: { flexDirection: 'row', paddingBottom: 6 },
+  allDayMini: { borderRadius: 6, paddingHorizontal: 4, paddingVertical: 2 },
+  allDayMiniText: { fontSize: 9.5, fontWeight: '700', letterSpacing: -0.1 },
 });

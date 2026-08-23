@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { durationLabel, hhmm } from '../lib/date';
 import { tapSoft } from '../lib/haptics';
 import { useSettings } from '../store/settings';
@@ -25,9 +25,8 @@ export function EventCard({ event, onPress, onToggle, index = 0 }: Props) {
 
   return (
     <Animated.View
-      entering={FadeIn.delay(Math.min(index, 8) * 45).duration(320)}
-      exiting={FadeOut.duration(160)}
-      layout={LinearTransition.springify().damping(20).stiffness(180)}
+      entering={FadeIn.delay(Math.min(index, 6) * 40).duration(280)}
+      exiting={FadeOut.duration(140)}
     >
       <Squish
         onPress={() => {

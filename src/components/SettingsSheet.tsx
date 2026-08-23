@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  FadeIn,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -18,47 +19,55 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { notifySuccess, tapLight, tapSoft } from '../lib/haptics';
+import { PALETTE_KEYS, PALETTES } from '../palettes';
 import { useSettings } from '../store/settings';
-import type { DayLayout, MonthLayout, MonthPanel } from '../store/settings';
-import { COLOR_KEYS, theme, tonedPalette, TONES } from '../theme';
+import type { DayLayout, MonthCells, MonthPanel, WeekLayout } from '../store/settings';
+import { theme } from '../theme';
 import { OptionTile } from './OptionTile';
-import { DayPreview, MonthPreview, PanelPreview } from './previews';
+import { DayPreview, MonthPreview, PalettePreview, PanelPreview, WeekPreview } from './previews';
 import { SegmentedRow } from './SegmentedRow';
 import { Squish } from './Squish';
 import { Toggle } from './Toggle';
 
-const MONTH_TILES: { key: MonthLayout; label: string; hint: string }[] = [
-  { key: 'minimal', label: 'Épuré', hint: 'les jours, rien de plus' },
+const MONTH_TILES: { key: MonthCells; label: string; hint: string }[] = [
   { key: 'dots', label: 'Pastilles', hint: 'un point par événement' },
   { key: 'tint', label: 'Teintes', hint: 'la case prend la couleur' },
   { key: 'bars', label: 'Barres', hint: 'une barre par événement' },
-  { key: 'preview', label: 'Aperçu', hint: 'les titres dans la case' },
+  { key: 'titles', label: 'Titres', hint: 'les noms dans la case' },
   { key: 'heat', label: 'Intensité', hint: 'plus foncé, plus chargé' },
 ];
 
 const PANEL_TILES: { key: MonthPanel; label: string; hint: string }[] = [
   { key: 'day', label: 'Le jour', hint: 'le jour choisi' },
-  { key: 'agenda', label: 'Agenda', hint: 'les jours à venir' },
-  { key: 'none', label: 'Plein écran', hint: 'que le calendrier' },
+  { key: 'agenda', label: 'À venir', hint: 'les jours suivants' },
+  { key: 'none', label: 'Rien', hint: 'grille plein écran' },
+];
+
+const WEEK_TILES: { key: WeekLayout; label: string; hint: string }[] = [
+  { key: 'grid7', label: '7 jours', hint: 'la semaine entière' },
+  { key: 'grid3', label: '3 jours', hint: 'plus lisible' },
+  { key: 'list', label: 'Liste', hint: 'jour par jour' },
 ];
 
 const DAY_TILES: { key: DayLayout; label: string; hint: string }[] = [
   { key: 'timeline', label: 'Timeline', hint: 'la grille horaire' },
-  { key: 'rail', label: 'Chronologie', hint: 'heures creuses repliées' },
+  { key: 'rail', label: 'Chronologie', hint: 'creux repliés' },
   { key: 'list', label: 'Liste', hint: 'juste les cartes' },
-  { key: 'three', label: '3 jours', hint: 'trois colonnes' },
 ];
+
+type Tab = 'views' | 'colors' | 'comfort';
 
 type Props = { visible: boolean; onClose: () => void };
 
 export function SettingsSheet({ visible, onClose }: Props) {
   const { height } = useWindowDimensions();
-  const { settings, update, reset, swatch } = useSettings();
+  const { settings, update, reset, swatch, ui } = useSettings();
+  const [tab, setTab] = useState<Tab>('views');
 
   const ty = useSharedValue(height);
   const backdrop = useSharedValue(0);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!visible) return;
     ty.value = height;
     backdrop.value = 0;
@@ -95,7 +104,13 @@ export function SettingsSheet({ visible, onClose }: Props) {
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }));
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss} statusBarTranslucent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={dismiss}
+      statusBarTranslucent
+    >
       <View style={styles.root}>
         <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
@@ -120,7 +135,7 @@ export function SettingsSheet({ visible, onClose }: Props) {
             </Squish>
             <Text style={styles.topTitle}>Affichage</Text>
             <Squish
-              style={styles.doneBtn}
+              style={[styles.doneBtn, { backgroundColor: ui.accent }]}
               onPress={() => {
                 notifySuccess();
                 dismiss();
@@ -131,179 +146,244 @@ export function SettingsSheet({ visible, onClose }: Props) {
             </Squish>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-            <Section title="Vue Mois" sub="Comment chaque jour se raconte dans la grille">
-              <View style={styles.tileGrid}>
-                {MONTH_TILES.map((t) => (
-                  <View key={t.key} style={styles.tileHalf}>
-                    <OptionTile
-                      label={t.label}
-                      hint={t.hint}
-                      selected={settings.monthLayout === t.key}
-                      onPress={() => update({ monthLayout: t.key })}
-                    >
-                      <MonthPreview variant={t.key} swatch={swatch} />
-                    </OptionTile>
-                  </View>
-                ))}
-              </View>
-            </Section>
+          <View style={styles.tabs}>
+            <SegmentedRow
+              value={tab}
+              onChange={setTab}
+              options={[
+                { key: 'views', label: 'Vues' },
+                { key: 'colors', label: 'Couleurs' },
+                { key: 'comfort', label: 'Confort' },
+              ]}
+            />
+          </View>
 
-            <Section title="Sous le calendrier" sub="Ce qui occupe le bas de l'écran">
-              <View style={styles.tileGrid}>
-                {PANEL_TILES.map((t) => (
-                  <View key={t.key} style={styles.tileThird}>
-                    <OptionTile
-                      label={t.label}
-                      hint={t.hint}
-                      selected={settings.monthPanel === t.key}
-                      onPress={() => update({ monthPanel: t.key })}
-                    >
-                      <PanelPreview variant={t.key} swatch={swatch} />
-                    </OptionTile>
-                  </View>
-                ))}
-              </View>
-            </Section>
-
-            <Section title="Vue Jour" sub="Quatre façons de lire une journée">
-              <View style={styles.tileGrid}>
-                {DAY_TILES.map((t) => (
-                  <View key={t.key} style={styles.tileHalf}>
-                    <OptionTile
-                      label={t.label}
-                      hint={t.hint}
-                      selected={settings.dayLayout === t.key}
-                      onPress={() => update({ dayLayout: t.key })}
-                    >
-                      <DayPreview variant={t.key} swatch={swatch} />
-                    </OptionTile>
-                  </View>
-                ))}
-              </View>
-            </Section>
-
-            <Section title="Réglage fin">
-              <View style={styles.card}>
-                <Field label="Plage horaire" hint="ce que la timeline montre">
-                  <SegmentedRow
-                    value={settings.dayRange}
-                    onChange={(dayRange) => update({ dayRange })}
-                    options={[
-                      { key: 'full', label: '0 – 24 h' },
-                      { key: 'active', label: 'Actives' },
-                      { key: 'auto', label: 'Auto' },
-                    ]}
-                  />
-                </Field>
-                <View style={styles.divider} />
-                <Field label="Densité" hint="hauteur d'une heure et des cases">
-                  <SegmentedRow
-                    value={settings.density}
-                    onChange={(density) => update({ density })}
-                    options={[
-                      { key: 'compact', label: 'Compact' },
-                      { key: 'normal', label: 'Normal' },
-                      { key: 'roomy', label: 'Aéré' },
-                    ]}
-                  />
-                </Field>
-                <View style={styles.divider} />
-                <Field label="Détail des cartes" hint="ce qu'une carte affiche">
-                  <SegmentedRow
-                    value={settings.detail}
-                    onChange={(detail) => update({ detail })}
-                    options={[
-                      { key: 'minimal', label: 'Titre' },
-                      { key: 'normal', label: 'Normal' },
-                      { key: 'full', label: 'Complet' },
-                    ]}
-                  />
-                </Field>
-              </View>
-            </Section>
-
-            <Section title="Tonalité" sub="La même palette, portée autrement">
-              <View style={styles.tileGrid}>
-                {TONES.map((t) => {
-                  const p = tonedPalette(t.key);
-                  return (
-                    <View key={t.key} style={styles.tileThird}>
-                      <OptionTile
-                        label={t.label}
-                        selected={settings.tone === t.key}
-                        onPress={() => update({ tone: t.key })}
-                      >
-                        <View style={styles.toneFrame}>
-                          {COLOR_KEYS.slice(0, 5).map((k) => (
-                            <View key={k} style={[styles.toneRow, { backgroundColor: p[k].wash }]}>
-                              <View style={[styles.toneDot, { backgroundColor: p[k].solid }]} />
-                            </View>
-                          ))}
+          <ScrollView
+            key={tab}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scroll}
+          >
+            <Animated.View entering={FadeIn.duration(180)}>
+              {tab === 'views' && (
+                <>
+                  <Section title="Mois" sub="Ce que raconte chaque case">
+                    <Tiles>
+                      {MONTH_TILES.map((t) => (
+                        <View key={t.key} style={styles.tileHalf}>
+                          <OptionTile
+                            label={t.label}
+                            hint={t.hint}
+                            selected={settings.monthCells === t.key}
+                            onPress={() => update({ monthCells: t.key })}
+                          >
+                            <MonthPreview variant={t.key} swatch={swatch} accent={ui.accent} />
+                          </OptionTile>
                         </View>
-                      </OptionTile>
+                      ))}
+                    </Tiles>
+                  </Section>
+
+                  <Section title="Sous la grille" sub="Le bas de l'écran en vue Mois">
+                    <Tiles>
+                      {PANEL_TILES.map((t) => (
+                        <View key={t.key} style={styles.tileThird}>
+                          <OptionTile
+                            label={t.label}
+                            hint={t.hint}
+                            selected={settings.monthPanel === t.key}
+                            onPress={() => update({ monthPanel: t.key })}
+                          >
+                            <PanelPreview variant={t.key} swatch={swatch} />
+                          </OptionTile>
+                        </View>
+                      ))}
+                    </Tiles>
+                  </Section>
+
+                  <Section title="Semaine">
+                    <Tiles>
+                      {WEEK_TILES.map((t) => (
+                        <View key={t.key} style={styles.tileThird}>
+                          <OptionTile
+                            label={t.label}
+                            hint={t.hint}
+                            selected={settings.weekLayout === t.key}
+                            onPress={() => update({ weekLayout: t.key })}
+                          >
+                            <WeekPreview variant={t.key} swatch={swatch} />
+                          </OptionTile>
+                        </View>
+                      ))}
+                    </Tiles>
+                  </Section>
+
+                  <Section title="Jour">
+                    <Tiles>
+                      {DAY_TILES.map((t) => (
+                        <View key={t.key} style={styles.tileThird}>
+                          <OptionTile
+                            label={t.label}
+                            hint={t.hint}
+                            selected={settings.dayLayout === t.key}
+                            onPress={() => update({ dayLayout: t.key })}
+                          >
+                            <DayPreview variant={t.key} swatch={swatch} />
+                          </OptionTile>
+                        </View>
+                      ))}
+                    </Tiles>
+                  </Section>
+
+                  <Section title="Grilles horaires">
+                    <View style={styles.card}>
+                      <Field label="Plage affichée" hint="jour et semaine">
+                        <SegmentedRow
+                          value={settings.dayRange}
+                          onChange={(dayRange) => update({ dayRange })}
+                          options={[
+                            { key: 'full', label: '0 – 24 h' },
+                            { key: 'active', label: 'Actives' },
+                            { key: 'auto', label: 'Auto' },
+                          ]}
+                        />
+                      </Field>
                     </View>
-                  );
-                })}
-              </View>
-            </Section>
+                  </Section>
+                </>
+              )}
 
-            <Section title="Petites choses">
-              <View style={styles.card}>
-                <SwitchRow
-                  icon="happy-outline"
-                  label="Emojis sur les événements"
-                  value={settings.showEmoji}
-                  onChange={(showEmoji) => update({ showEmoji })}
-                />
-                <View style={styles.divider} />
-                <SwitchRow
-                  icon="time-outline"
-                  label="Ligne de l'heure actuelle"
-                  value={settings.showNowLine}
-                  onChange={(showNowLine) => update({ showNowLine })}
-                />
-                <View style={styles.divider} />
-                <SwitchRow
-                  icon="cafe-outline"
-                  label="Week-end en retrait"
-                  value={settings.dimWeekend}
-                  onChange={(dimWeekend) => update({ dimWeekend })}
-                />
-                <View style={styles.divider} />
-                <SwitchRow
-                  icon="grid-outline"
-                  label="Numéros de semaine"
-                  value={settings.showWeekNumbers}
-                  onChange={(showWeekNumbers) => update({ showWeekNumbers })}
-                />
-                <View style={styles.divider} />
-                <SwitchRow
-                  icon="checkmark-done-outline"
-                  label="Masquer ce qui est fait"
-                  value={settings.hideDone}
-                  onChange={(hideDone) => update({ hideDone })}
-                />
-                <View style={styles.divider} />
-                <Field label="La semaine commence">
-                  <SegmentedRow
-                    value={settings.weekStart}
-                    onChange={(weekStart) => update({ weekStart: weekStart as 0 | 1 })}
-                    options={[
-                      { key: 1, label: 'Lundi' },
-                      { key: 0, label: 'Dimanche' },
-                    ]}
-                  />
-                </Field>
-              </View>
-            </Section>
+              {tab === 'colors' && (
+                <>
+                  <Section title="Jeu de couleurs" sub="Il habille aussi le fond de l'app">
+                    <Tiles>
+                      {PALETTE_KEYS.map((k) => (
+                        <View key={k} style={styles.tileHalf}>
+                          <OptionTile
+                            label={PALETTES[k].label}
+                            hint={PALETTES[k].note}
+                            selected={settings.palette === k}
+                            onPress={() => update({ palette: k })}
+                          >
+                            <PalettePreview palette={PALETTES[k]} />
+                          </OptionTile>
+                        </View>
+                      ))}
+                    </Tiles>
+                  </Section>
 
-            <View style={{ height: 28 }} />
+                  <Section title="Sur les événements">
+                    <View style={styles.card}>
+                      <SwitchRow
+                        icon="color-wand-outline"
+                        label="Deviner couleur et emoji"
+                        hint="d'après ce que tu écris"
+                        value={settings.autoColor}
+                        accent={ui.accent}
+                        onChange={(autoColor) => update({ autoColor })}
+                      />
+                      <View style={styles.divider} />
+                      <SwitchRow
+                        icon="happy-outline"
+                        label="Afficher les emojis"
+                        value={settings.showEmoji}
+                        accent={ui.accent}
+                        onChange={(showEmoji) => update({ showEmoji })}
+                      />
+                    </View>
+                  </Section>
+                </>
+              )}
+
+              {tab === 'comfort' && (
+                <>
+                  <Section title="Lecture">
+                    <View style={styles.card}>
+                      <Field label="Densité" hint="hauteur des heures et des cases">
+                        <SegmentedRow
+                          value={settings.density}
+                          onChange={(density) => update({ density })}
+                          options={[
+                            { key: 'compact', label: 'Compact' },
+                            { key: 'normal', label: 'Normal' },
+                            { key: 'roomy', label: 'Aéré' },
+                          ]}
+                        />
+                      </Field>
+                      <View style={styles.divider} />
+                      <Field label="Détail des cartes" hint="ce qu'une carte affiche">
+                        <SegmentedRow
+                          value={settings.detail}
+                          onChange={(detail) => update({ detail })}
+                          options={[
+                            { key: 'minimal', label: 'Titre' },
+                            { key: 'normal', label: 'Normal' },
+                            { key: 'full', label: 'Complet' },
+                          ]}
+                        />
+                      </Field>
+                    </View>
+                  </Section>
+
+                  <Section title="Repères">
+                    <View style={styles.card}>
+                      <SwitchRow
+                        icon="time-outline"
+                        label="Ligne de l'heure actuelle"
+                        value={settings.showNowLine}
+                        accent={ui.accent}
+                        onChange={(showNowLine) => update({ showNowLine })}
+                      />
+                      <View style={styles.divider} />
+                      <SwitchRow
+                        icon="cafe-outline"
+                        label="Week-end en retrait"
+                        value={settings.dimWeekend}
+                        accent={ui.accent}
+                        onChange={(dimWeekend) => update({ dimWeekend })}
+                      />
+                      <View style={styles.divider} />
+                      <SwitchRow
+                        icon="grid-outline"
+                        label="Numéros de semaine"
+                        value={settings.showWeekNumbers}
+                        accent={ui.accent}
+                        onChange={(showWeekNumbers) => update({ showWeekNumbers })}
+                      />
+                      <View style={styles.divider} />
+                      <SwitchRow
+                        icon="checkmark-done-outline"
+                        label="Masquer ce qui est fait"
+                        value={settings.hideDone}
+                        accent={ui.accent}
+                        onChange={(hideDone) => update({ hideDone })}
+                      />
+                      <View style={styles.divider} />
+                      <Field label="La semaine commence">
+                        <SegmentedRow
+                          value={settings.weekStart}
+                          onChange={(weekStart) => update({ weekStart: weekStart as 0 | 1 })}
+                          options={[
+                            { key: 1, label: 'Lundi' },
+                            { key: 0, label: 'Dimanche' },
+                          ]}
+                        />
+                      </Field>
+                    </View>
+                  </Section>
+                </>
+              )}
+
+              <View style={{ height: 28 }} />
+            </Animated.View>
           </ScrollView>
         </Animated.View>
       </View>
     </Modal>
   );
+}
+
+function Tiles({ children }: { children: React.ReactNode }) {
+  return <View style={styles.tileGrid}>{children}</View>;
 }
 
 function Section({
@@ -347,12 +427,16 @@ function Field({
 function SwitchRow({
   icon,
   label,
+  hint,
   value,
+  accent,
   onChange,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
+  hint?: string;
   value: boolean;
+  accent: string;
   onChange: (v: boolean) => void;
 }) {
   return (
@@ -365,8 +449,11 @@ function SwitchRow({
         onChange(!value);
       }}
     >
-      <Ionicons name={icon} size={17} color={value ? theme.accent : theme.inkSoft} />
-      <Text style={[styles.switchLabel, value && { color: theme.ink }]}>{label}</Text>
+      <Ionicons name={icon} size={17} color={value ? accent : theme.inkSoft} />
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.switchLabel, value && { color: theme.ink }]}>{label}</Text>
+        {!!hint && <Text style={styles.switchHint}>{hint}</Text>}
+      </View>
       <Toggle value={value} onChange={onChange} />
     </Squish>
   );
@@ -389,7 +476,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   resetBtn: { minWidth: 84 },
   reset: { fontSize: 14, fontWeight: '600', color: theme.inkFaint, letterSpacing: -0.2 },
@@ -400,9 +487,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 16,
-    backgroundColor: theme.accent,
   },
   doneText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
+  tabs: { paddingHorizontal: 16, paddingBottom: 4 },
   scroll: { paddingHorizontal: 16 },
   section: { marginTop: 18 },
   sectionTitle: { fontSize: 17, fontWeight: '800', color: theme.ink, letterSpacing: -0.4 },
@@ -411,12 +498,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.inkFaint,
     marginTop: 2,
-    marginBottom: 10,
     letterSpacing: -0.1,
   },
-  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
-  tileHalf: { width: '48%', flexGrow: 1 },
-  tileThird: { width: '31%', flexGrow: 1 },
+  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
+  tileHalf: { width: '48%' },
+  tileThird: { width: '31.4%' },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.lg,
@@ -431,8 +517,6 @@ const styles = StyleSheet.create({
   fieldHint: { fontSize: 11.5, fontWeight: '600', color: theme.inkFaint },
   divider: { height: 1, backgroundColor: theme.hairline },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13 },
-  switchLabel: { flex: 1, fontSize: 14.5, fontWeight: '600', color: theme.inkSoft, letterSpacing: -0.2 },
-  toneFrame: { height: 68, padding: 8, gap: 4, justifyContent: 'center', backgroundColor: '#FFFFFF' },
-  toneRow: { height: 8, borderRadius: 4, justifyContent: 'center', paddingLeft: 3 },
-  toneDot: { width: 4, height: 4, borderRadius: 2 },
+  switchLabel: { fontSize: 14.5, fontWeight: '600', color: theme.inkSoft, letterSpacing: -0.2 },
+  switchHint: { fontSize: 11.5, fontWeight: '600', color: theme.inkFaint, marginTop: 1 },
 });

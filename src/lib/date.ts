@@ -58,6 +58,8 @@ export function weekOf(d: Date, weekStart: 0 | 1 = 1): Date[] {
 export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export const monthTitle = (d: Date) => cap(format(d, 'MMMM', { locale: fr }));
+export const monthShort = (d: Date) => cap(format(d, 'MMM', { locale: fr })).replace('.', '');
+export const dayMonth = (d: Date) => cap(format(d, 'd MMM', { locale: fr })).replace('.', '');
 export const monthYearTitle = (d: Date) => cap(format(d, 'MMMM yyyy', { locale: fr }));
 export const longDay = (d: Date) => cap(format(d, 'EEEE d MMMM', { locale: fr }));
 export const shortDay = (d: Date) => cap(format(d, 'EEE', { locale: fr })).replace('.', '');

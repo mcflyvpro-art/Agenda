@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 import { tapLight } from '../lib/haptics';
+import { useSettings } from '../store/settings';
 import { theme } from '../theme';
 import { Squish } from './Squish';
 
@@ -16,6 +17,7 @@ type Props = {
 
 /** Vignette de disposition : l'aperçu fait la démonstration, le texte confirme. */
 export function OptionTile({ label, hint, selected, onPress, children }: Props) {
+  const { ui } = useSettings();
   return (
     <Squish
       scaleTo={0.95}
@@ -24,12 +26,12 @@ export function OptionTile({ label, hint, selected, onPress, children }: Props) 
         tapLight();
         onPress();
       }}
-      style={[styles.tile, selected && styles.tileOn]}
+      style={[styles.tile, selected && styles.tileOn, selected && { borderColor: ui.accent }]}
     >
       <View style={styles.preview}>{children}</View>
       <View style={styles.row}>
         <View style={styles.texts}>
-          <Text style={[styles.label, selected && { color: theme.accent }]} numberOfLines={1}>
+          <Text style={[styles.label, selected && { color: ui.accent }]} numberOfLines={1}>
             {label}
           </Text>
           {!!hint && (
@@ -39,7 +41,10 @@ export function OptionTile({ label, hint, selected, onPress, children }: Props) 
           )}
         </View>
         {selected && (
-          <Animated.View entering={ZoomIn.springify().damping(14)} style={styles.check}>
+          <Animated.View
+            entering={ZoomIn.springify().damping(14)}
+            style={[styles.check, { backgroundColor: ui.accent }]}
+          >
             <Ionicons name="checkmark" size={11} color="#FFFFFF" />
           </Animated.View>
         )}
@@ -57,7 +62,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     padding: 8,
   },
-  tileOn: { borderColor: theme.accent, backgroundColor: '#FFFFFF' },
+  tileOn: { backgroundColor: '#FFFFFF' },
   preview: { borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(32,32,43,0.03)' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 7, paddingHorizontal: 2 },
   texts: { flex: 1 },
@@ -67,7 +72,6 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: theme.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },

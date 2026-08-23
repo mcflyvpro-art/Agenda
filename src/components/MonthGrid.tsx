@@ -13,7 +13,7 @@ import {
 import { alpha } from '../lib/color';
 import { tapLight } from '../lib/haptics';
 import { useSettings } from '../store/settings';
-import type { MonthLayout } from '../store/settings';
+import type { MonthCells } from '../store/settings';
 import { theme, type Swatch } from '../theme';
 import type { AgendaEvent } from '../types';
 import { Squish } from './Squish';
@@ -27,7 +27,7 @@ type Props = {
   /** version réduite utilisée dans la fiche événement */
   compact?: boolean;
   /** force une disposition (sinon celle des réglages) */
-  layout?: MonthLayout;
+  layout?: MonthCells;
 };
 
 type CellProps = {
@@ -38,9 +38,11 @@ type CellProps = {
   events: AgendaEvent[];
   height: number;
   compact: boolean;
-  layout: MonthLayout;
+  layout: MonthCells;
   dim: boolean;
   maxLoad: number;
+  accent: string;
+  today: string;
   swatch: (k: AgendaEvent['color']) => Swatch;
   onSelect: (key: string) => void;
 };
@@ -56,12 +58,14 @@ const DayCell = memo(function DayCell({
   layout,
   dim,
   maxLoad,
+  accent,
+  today,
   swatch,
   onSelect,
 }: CellProps) {
   const key = toKey(date);
   const tint = events[0] ? swatch(events[0].color) : null;
-  const circle = compact ? 30 : layout === 'preview' ? 24 : 34;
+  const circle = compact ? 30 : layout === 'titles' ? 24 : 34;
   const showTint = !compact && layout === 'tint' && !!tint && inMonth;
   const heat =
     !compact && layout === 'heat' && inMonth && events.length > 0
@@ -73,7 +77,7 @@ const DayCell = memo(function DayCell({
     : !inMonth
       ? theme.inkFaint
       : isToday
-        ? theme.today
+        ? today
         : showTint && tint
           ? tint.deep
           : dim
@@ -96,10 +100,10 @@ const DayCell = memo(function DayCell({
           {
             paddingVertical: compact ? 3 : 5,
             borderRadius: theme.radius.md,
-            justifyContent: layout === 'preview' && !compact ? 'flex-start' : 'center',
+            justifyContent: layout === 'titles' && !compact ? 'flex-start' : 'center',
           },
           showTint && tint ? { backgroundColor: tint.wash } : null,
-          heat > 0 ? { backgroundColor: alpha(theme.accent, heat) } : null,
+          heat > 0 ? { backgroundColor: alpha(accent, heat) } : null,
           !showTint && heat === 0 && dim && inMonth
             ? { backgroundColor: 'rgba(32,32,43,0.035)' }
             : null,
@@ -119,7 +123,7 @@ const DayCell = memo(function DayCell({
               entering={ZoomIn.springify().damping(13).stiffness(220)}
               style={[
                 StyleSheet.absoluteFill,
-                { borderRadius: circle / 2, backgroundColor: isToday ? theme.today : theme.ink },
+                { borderRadius: circle / 2, backgroundColor: isToday ? today : theme.ink },
               ]}
             />
           )}
@@ -127,7 +131,7 @@ const DayCell = memo(function DayCell({
             style={[
               styles.num,
               compact && { fontSize: 14.5 },
-              layout === 'preview' && !compact && { fontSize: 13.5 },
+              layout === 'titles' && !compact && { fontSize: 13.5 },
               { color: numColor },
               !inMonth && { opacity: 0.45 },
               (isToday || selected) && { fontWeight: '800' },
@@ -156,7 +160,7 @@ function Marks({
   selected,
   swatch,
 }: {
-  layout: MonthLayout | 'compact';
+  layout: MonthCells | 'compact';
   events: AgendaEvent[];
   inMonth: boolean;
   selected: boolean;
@@ -165,7 +169,7 @@ function Marks({
   if (layout === 'heat') return null;
   const opacity = inMonth ? 1 : 0.35;
 
-  if (layout === 'compact' || layout === 'minimal') {
+  if (layout === 'compact') {
     return (
       <View style={styles.markRow}>
         {events.length > 0 && (
@@ -193,7 +197,7 @@ function Marks({
     );
   }
 
-  if (layout === 'preview') {
+  if (layout === 'titles') {
     return (
       <View style={styles.chipStack}>
         {events.slice(0, 3).map((e) => {
@@ -235,14 +239,33 @@ export function MonthGrid({
   compact = false,
   layout,
 }: Props) {
-  const { settings, swatch } = useSettings();
-  const activeLayout = layout ?? settings.monthLayout;
+  const { settings, swatch, ui } = useSettings();
+  const activeLayout = layout ?? settings.monthCells;
   const days = monthMatrix(month, settings.weekStart);
   const now = new Date();
   const maxLoad = days.reduce((m, d) => Math.max(m, (byDay[toKey(d)] ?? []).length), 0);
 
   const weekNums = !compact && settings.showWeekNumbers;
   const rows = [0, 1, 2, 3, 4, 5];
+
+  /**
+   * En mode « Titres », une semaine chargée mérite plus de place qu'une semaine
+   * vide : on répartit la même hauteur totale au prorata du contenu.
+   */
+  const rowHeights = (() => {
+    const uniform = rows.map(() => cellHeight);
+    if (compact || activeLayout !== 'titles') return uniform;
+    const weights = rows.map((r) => {
+      const busiest = Math.max(
+        0,
+        ...days.slice(r * 7, r * 7 + 7).map((d) => (byDay[toKey(d)] ?? []).length),
+      );
+      return 1 + Math.min(3, busiest) * 0.62;
+    });
+    const sum = weights.reduce((a, b) => a + b, 0);
+    const total = cellHeight * 6;
+    return weights.map((w) => Math.max(38, (total * w) / sum));
+  })();
 
   return (
     <View style={styles.wrap}>
@@ -258,7 +281,7 @@ export function MonthGrid({
       {rows.map((r) => (
         <View key={r} style={styles.row}>
           {weekNums && (
-            <View style={[styles.weekNumCol, { height: cellHeight }]}>
+            <View style={[styles.weekNumCol, { height: rowHeights[r] }]}>
               <Text style={styles.weekNumText}>{getISOWeek(days[r * 7])}</Text>
             </View>
           )}
@@ -272,11 +295,13 @@ export function MonthGrid({
                 isToday={isSameDay(d, now)}
                 selected={key === selectedKey}
                 events={byDay[key] ?? []}
-                height={cellHeight}
+                height={rowHeights[r]}
                 compact={compact}
                 layout={activeLayout}
                 dim={!compact && settings.dimWeekend && isWeekend(d)}
                 maxLoad={maxLoad}
+                accent={ui.accent}
+                today={ui.today}
                 swatch={swatch}
                 onSelect={onSelect}
               />

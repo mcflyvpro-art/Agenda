@@ -4,10 +4,11 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { tapMedium } from '../lib/haptics';
-import { theme } from '../theme';
+import { useSettings } from '../store/settings';
 import { Squish } from './Squish';
 
 export function AddButton({ onPress, bottom }: { onPress: () => void; bottom: number }) {
+  const { ui } = useSettings();
   return (
     <Animated.View
       entering={FadeInUp.delay(250).springify().damping(16)}
@@ -20,10 +21,10 @@ export function AddButton({ onPress, bottom }: { onPress: () => void; bottom: nu
           tapMedium();
           onPress();
         }}
-        style={styles.shadow}
+        style={[styles.shadow, { shadowColor: ui.accent }]}
       >
         <LinearGradient
-          colors={['#B9A6F5', '#F5A8C6']}
+          colors={[ui.accent, ui.today]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.button}
@@ -39,7 +40,6 @@ const styles = StyleSheet.create({
   wrap: { position: 'absolute', right: 20, alignItems: 'center', pointerEvents: 'box-none' },
   shadow: {
     borderRadius: 30,
-    shadowColor: '#8A6BC8',
     shadowOpacity: 0.38,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },

@@ -10,52 +10,66 @@ Une seule base de code, deux plateformes : **iOS** (l'utilisatrice) et **Android
 
 ## Ce que fait l'app
 
-**Vue Mois**
-- Grille pastel, swipe horizontal fluide entre les mois (ou les flèches).
-- Les jours qui ont des événements prennent la teinte de leur premier événement + pastilles colorées.
-- Le jour sélectionné s'entoure d'une bulle animée ; aujourd'hui est toujours en rose.
-- Sous le calendrier : la liste du jour sélectionné, en cartes colorées.
+### Cinq échelles de temps
 
-**Vue Jour**
-- Bandeau de semaine en haut (tap pour changer de jour, swipe pour glisser d'un jour à l'autre).
-- Timeline 24 h, les événements placés à l'heure exacte ; les chevauchements se rangent côte à côte.
-- Ligne « maintenant » rose, mise à jour toute seule, et ouverture automatique sur l'heure courante.
-- Tap sur un créneau vide → création d'un événement pile à cette heure-là.
-- Appui long sur un événement → coché / décoché.
+C'est le vrai choix de disposition : chaque échelle est une lecture différente,
+pas la même grille repeinte.
 
-**Créer un événement (volontairement permissif)**
-- Titre libre, emoji (24 au choix), 9 couleurs pastel.
-- Date via un mini-calendrier qui se déplie dans la fiche.
-- Heures de début et de fin via des roulettes façon iOS (pas de 5 min).
-- Bascule « toute la journée », lieu, notes.
-- Suppression depuis la fiche, cases à cocher sur les cartes.
+- **Année** — les douze mois d'un coup, façon Apple Calendar. Les jours occupés se teintent,
+  aujourd'hui est marqué. On touche un mois pour y entrer.
+- **Mois** — la grille classique, swipe entre les mois, et ce qu'on veut en dessous.
+- **Semaine** — la vraie grille 7 colonnes × heures, avec la ligne de l'heure sur la bonne colonne.
+- **Jour** — la journée en détail.
+- **Liste** — le déroulé continu des jours à venir, regroupé par mois.
 
-**Le panneau d'affichage (⚙︎ en haut à droite)**
+### Les variantes de chaque échelle
 
-Tout se règle en vignettes : l'aperçu montre le rendu, le texte le confirme.
+**Mois** — les cases : Pastilles · Teintes · Barres · Titres · Intensité (carte de chaleur).
+En mode Titres, les semaines chargées prennent plus de hauteur que les semaines vides.
+**Sous la grille** : le jour choisi · les jours à venir · rien (grille plein écran).
 
-- **Vue Mois — 6 dispositions** : Épuré (les jours seuls) · Pastilles (un point par événement) ·
-  Teintes (la case prend la couleur) · Barres (une barre par événement) ·
-  Aperçu (les titres dans la case) · Intensité (carte de chaleur : plus foncé, plus chargé).
-- **Sous le calendrier — 3 dispositions** : le jour choisi · un agenda continu des jours à venir ·
-  rien du tout, le calendrier en plein écran.
-- **Vue Jour — 4 dispositions** : Timeline (la grille horaire) · Chronologie (les heures creuses
-  repliées en « 1 h 30 de libre », touchables pour créer) · Liste (juste les cartes) ·
-  3 jours (trois colonnes côte à côte).
-- **Plage horaire** : 0–24 h · heures actives (7–23) · automatique, calée autour des événements.
-  Dans tous les cas la plage s'élargit toute seule si un événement déborde.
-- **Densité** : compact / normal / aéré — change la hauteur d'une heure et des cases.
-- **Détail des cartes** : titre seul · + horaires · + lieu et notes.
-- **Tonalité** : la même palette en Pastel, Vif ou Doux.
-- **Et aussi** : emojis, ligne de l'heure actuelle, week-end en retrait, numéros de semaine,
-  masquer ce qui est fait, semaine qui commence lundi ou dimanche.
+**Semaine** — 7 jours · 3 jours (plus lisible sur un téléphone) · Liste (jour par jour).
 
-Tous les réglages sont gardés sur le téléphone et « Par défaut » remet tout en place.
+**Jour** — Timeline (la grille horaire) · Chronologie (les heures creuses repliées en
+« 1 h 30 de libre », touchables pour y créer quelque chose) · Liste.
 
-**Le reste**
-- Tout est stocké **en local sur le téléphone** (aucun compte, aucun serveur, aucune donnée qui sort).
-- Retours haptiques sur chaque interaction, animations ressort, dégradé de fond, blur.
-- Interface entièrement en français.
+**Partout** — plage horaire (0–24 h, heures actives, ou calée automatiquement autour des
+événements, et toujours élargie si un événement déborde), densité (compact / normal / aéré),
+détail des cartes (titre seul → horaires → lieu et notes).
+
+### Les couleurs
+
+Cinq jeux de couleurs complets, pas des variantes de saturation : **Pastel** (doux, laiteux),
+**Sorbet** (franc, joyeux), **Brume** (sourd, minimal), **Terre** (chaud, naturel),
+**Encre** (froid, contrasté). Chacun habille aussi le fond de l'app, le bouton +, la couleur
+d'aujourd'hui.
+
+Chaque teinte existe en trois valeurs — un fond très clair, une pastille, un texte — et
+`scripts/gen-palettes.mjs` les génère en assombrissant automatiquement chaque teinte jusqu'à
+garantir **au moins 5:1 de contraste** entre le texte et son propre fond. C'est ce qui évite
+les jaunes et les verts illisibles.
+
+L'app devine aussi l'emoji et la couleur d'après ce qui est écrit : « déjeuner avec Léa »
+devient 🍽️ pêche, « séance de sport » devient 🏃‍♀️ menthe. Un choix manuel a toujours le
+dernier mot, et l'automatisme se coupe dans les réglages.
+
+### Créer un événement
+
+Titre libre, emoji, 9 couleurs, date via un mini-calendrier déplié dans la fiche, heures via
+des roulettes façon iOS, toute la journée, lieu, notes, suppression. Appui long sur une carte
+pour la cocher.
+
+### Les réglages
+
+Un bouton en haut à droite, trois onglets — **Vues**, **Couleurs**, **Confort** — pour que
+chaque écran reste court. Les dispositions se choisissent en vignettes : chaque option dessine
+son propre rendu en miniature, avec les couleurs du moment.
+
+Le reste : emojis, ligne de l'heure actuelle, week-end en retrait, numéros de semaine,
+masquer ce qui est fait, premier jour de la semaine. « Par défaut » remet tout en place.
+
+Tout est stocké **en local sur le téléphone** : aucun compte, aucun serveur, aucune donnée
+qui sort. Interface entièrement en français.
 
 ## Tester sans rien installer
 
@@ -104,18 +118,21 @@ src/
   types.ts                  AgendaEvent, Draft
   store/events.tsx          les événements + persistance AsyncStorage
   store/settings.tsx        les réglages d'affichage + persistance
+  palettes.ts               les 5 jeux de couleurs (généré, contrastes vérifiés)
   lib/
     date.ts                 helpers de dates en français
-    color.ts                conversions hex/hsl pour décliner la palette
+    color.ts                conversions hex/hsl
+    suggest.ts              l'emoji et la couleur devinés d'après le titre
     layout.ts               répartition des événements qui se chevauchent
     haptics.ts              retours haptiques
     id.ts
   screens/CalendarScreen.tsx  l'écran unique : en-tête, bascule Mois/Jour, pager, fiche
   components/
-    MonthGrid.tsx           la grille du mois, ses 6 dispositions
-    DayTimeline.tsx         la timeline horaire (1 ou 3 jours)
+    YearGrid.tsx            les douze mois de l'année
+    MonthGrid.tsx           la grille du mois et ses cinq façons de remplir une case
+    DayTimeline.tsx         la grille horaire, de 1 à 7 colonnes
     DayRail.tsx             la chronologie condensée
-    AgendaPanel.tsx         l'agenda continu
+    PlannerList.tsx         le déroulé par jours
     WeekStrip.tsx           le bandeau de semaine
     EventCard.tsx           la carte d'événement de la liste
     EventSheet.tsx          la fiche de création / édition
@@ -130,5 +147,6 @@ src/
 ## Petits réglages
 
 - **Événements d'exemple** au premier lancement : `SEED_ON_FIRST_LAUNCH` dans `src/store/events.tsx`.
-- **Couleurs** : tout part de `PALETTE` dans `src/theme.ts`.
+- **Couleurs** : les recettes sont dans `scripts/gen-palettes.mjs` ; `node scripts/gen-palettes.mjs`
+  régénère `src/palettes.ts` et affiche les contrastes obtenus.
 - **Hauteur d'une heure** dans la vue Jour : `HOUR_H` dans `src/components/DayTimeline.tsx`.

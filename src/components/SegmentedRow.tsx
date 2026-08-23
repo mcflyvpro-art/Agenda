@@ -10,10 +10,17 @@ type Props<T extends string | number> = {
   options: Option<T>[];
   value: T;
   onChange: (v: T) => void;
+  /** 'lg' pour la barre d'échelles en tête d'écran */
+  size?: 'md' | 'lg';
 };
 
 /** Sélecteur à N choix, pastille glissante — utilisé partout dans les réglages. */
-export function SegmentedRow<T extends string | number>({ options, value, onChange }: Props<T>) {
+export function SegmentedRow<T extends string | number>({
+  options,
+  value,
+  onChange,
+  size = 'md',
+}: Props<T>) {
   const [w, setW] = useState(0);
   const idx = Math.max(0, options.findIndex((o) => o.key === value));
   const seg = w > 0 ? (w - 6) / options.length : 0;
@@ -26,12 +33,12 @@ export function SegmentedRow<T extends string | number>({ options, value, onChan
   const onLayout = (e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width);
 
   return (
-    <View style={styles.track} onLayout={onLayout}>
+    <View style={[styles.track, size === 'lg' && styles.trackLg]} onLayout={onLayout}>
       {w > 0 && <Animated.View style={[styles.pill, pill]} />}
       {options.map((o) => (
         <Pressable
           key={String(o.key)}
-          style={styles.item}
+          style={[styles.item, size === 'lg' && styles.itemLg]}
           onPress={() => {
             if (o.key === value) return;
             tapLight();
@@ -40,7 +47,11 @@ export function SegmentedRow<T extends string | number>({ options, value, onChan
         >
           <Text
             numberOfLines={1}
-            style={[styles.label, o.key === value && styles.labelActive]}
+            style={[
+              styles.label,
+              size === 'lg' && styles.labelLg,
+              o.key === value && styles.labelActive,
+            ]}
           >
             {o.label}
           </Text>
@@ -70,7 +81,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
+  trackLg: { borderRadius: 16, backgroundColor: 'rgba(32,32,43,0.055)' },
   item: { flex: 1, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 2 },
+  itemLg: { paddingVertical: 9 },
   label: { fontSize: 12.5, fontWeight: '700', color: theme.inkSoft, letterSpacing: -0.2 },
+  labelLg: { fontSize: 13 },
   labelActive: { color: theme.ink },
 });

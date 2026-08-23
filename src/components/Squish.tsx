@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, PressableProps, ViewStyle, StyleProp } from 'react-native';
+import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -17,32 +18,28 @@ type Props = PressableProps & {
   dimTo?: number;
 };
 
-/** Bouton qui « respire » : ressort doux à l'appui, comme sur iOS. */
+/**
+ * Bouton qui « respire » : ressort doux à l'appui.
+ * L'animation est portée par la valeur partagée, pas recalculée à chaque frame
+ * dans le style — c'est ce qui la rend stable quand la liste se réordonne.
+ */
 export function Squish({ children, style, scaleTo = 0.955, dimTo = 0.9, ...rest }: Props) {
   const pressed = useSharedValue(0);
 
   const animated = useAnimatedStyle(() => ({
-    transform: [
-      {
-        scale: withSpring(1 - pressed.value * (1 - scaleTo), {
-          damping: 18,
-          stiffness: 320,
-          mass: 0.5,
-        }),
-      },
-    ],
-    opacity: withTiming(1 - pressed.value * (1 - dimTo), { duration: 90 }),
+    transform: [{ scale: interpolate(pressed.value, [0, 1], [1, scaleTo]) }],
+    opacity: interpolate(pressed.value, [0, 1], [1, dimTo]),
   }));
 
   return (
     <AnimatedPressable
       {...rest}
       onPressIn={(e) => {
-        pressed.value = 1;
+        pressed.value = withSpring(1, { damping: 20, stiffness: 400, mass: 0.4 });
         rest.onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        pressed.value = 0;
+        pressed.value = withTiming(0, { duration: 160 });
         rest.onPressOut?.(e);
       }}
       style={[style, animated]}

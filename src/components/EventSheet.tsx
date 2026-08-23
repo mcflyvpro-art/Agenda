@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -26,7 +26,8 @@ import Animated, {
 import { addMonths, chipDay, fromKey, hhmm, monthYearTitle } from '../lib/date';
 import { notifySuccess, notifyWarn, tapLight, tapSoft } from '../lib/haptics';
 import { COLOR_KEYS, EMOJIS, theme } from '../theme';
-import { useSwatch } from '../store/settings';
+import { useSettings } from '../store/settings';
+import { suggestFromTitle } from '../lib/suggest';
 import type { AgendaEvent, Draft } from '../types';
 import { MonthGrid } from './MonthGrid';
 import { Squish } from './Squish';
@@ -50,7 +51,8 @@ export function EventSheet({ visible, draft, byDay, onClose, onSave, onDelete }:
   const [section, setSection] = useState<Section>(null);
   const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
 
-  const swatch = useSwatch();
+  const { settings, swatch } = useSettings();
+  const touched = useRef({ emoji: false, color: false });
   const ty = useSharedValue(height);
   const backdrop = useSharedValue(0);
 
@@ -59,6 +61,7 @@ export function EventSheet({ visible, draft, byDay, onClose, onSave, onDelete }:
       setD(draft);
       setSection(null);
       setPickerMonth(fromKey(draft.date));
+      touched.current = { emoji: false, color: false };
       ty.value = height;
       backdrop.value = 0;
       ty.value = withSpring(0, { damping: 24, stiffness: 220, mass: 0.9 });
@@ -105,6 +108,22 @@ export function EventSheet({ visible, draft, byDay, onClose, onSave, onDelete }:
   }
 
   const set = (patch: Partial<Draft>) => setD((prev) => (prev ? { ...prev, ...patch } : prev));
+
+  /**
+   * En saisissant le titre d'un nouvel événement, on propose un emoji et une
+   * couleur qui collent au sujet — tant que rien n'a été choisi à la main.
+   */
+  const onTitleChange = (title: string) => {
+    const patch: Partial<Draft> = { title };
+    if (settings.autoColor && !d.id) {
+      const guess = suggestFromTitle(title);
+      if (guess) {
+        if (!touched.current.emoji) patch.emoji = guess.emoji;
+        if (!touched.current.color) patch.color = guess.color;
+      }
+    }
+    set(patch);
+  };
 
   const toggleSection = (s: Section) => {
     tapSoft();
@@ -188,7 +207,7 @@ export function EventSheet({ visible, draft, byDay, onClose, onSave, onDelete }:
                   </Squish>
                   <TextInput
                     value={d.title}
-                    onChangeText={(t) => set({ title: t })}
+                    onChangeText={onTitleChange}
                     placeholder="Nom de l'événement"
                     placeholderTextColor={`${c.deep}66`}
                     style={[styles.titleInput, noOutline, { color: c.deep }]}
@@ -210,6 +229,7 @@ export function EventSheet({ visible, draft, byDay, onClose, onSave, onDelete }:
                         scaleTo={0.82}
                         onPress={() => {
                           tapLight();
+                          touched.current.emoji = true;
                           set({ emoji: e });
                           setSection(null);
                         }}
@@ -237,6 +257,7 @@ export function EventSheet({ visible, draft, byDay, onClose, onSave, onDelete }:
                       dimTo={1}
                       onPress={() => {
                         tapLight();
+                        touched.current.color = true;
                         set({ color: k });
                       }}
                       style={styles.colorHit}

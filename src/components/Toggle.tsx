@@ -2,13 +2,15 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { tapSoft } from '../lib/haptics';
-import { theme } from '../theme';
+import { useSettings } from '../store/settings';
 
 type Props = { value: boolean; onChange: (v: boolean) => void; color?: string };
 
-export function Toggle({ value, onChange, color = theme.accent }: Props) {
+export function Toggle({ value, onChange, color }: Props) {
+  const { ui } = useSettings();
+  const on = color ?? ui.accent;
   const track = useAnimatedStyle(() => ({
-    backgroundColor: withTiming(value ? color : 'rgba(32,32,43,0.12)', { duration: 180 }),
+    backgroundColor: withTiming(value ? on : 'rgba(32,32,43,0.12)', { duration: 180 }),
   }));
   const knob = useAnimatedStyle(() => ({
     transform: [{ translateX: withSpring(value ? 20 : 0, { damping: 18, stiffness: 260 }) }],

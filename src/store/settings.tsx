@@ -8,67 +8,74 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { tonedPalette, type ColorKey, type Swatch, type Tone } from '../theme';
+import { PALETTES, type PaletteKey } from '../palettes';
+import type { ColorKey, Swatch } from '../theme';
 
-const STORAGE_KEY = 'agenda.settings.v1';
+const STORAGE_KEY = 'agenda.settings.v2';
 
-/** Comment les jours du mois sont rendus dans la grille. */
-export type MonthLayout = 'minimal' | 'dots' | 'tint' | 'bars' | 'preview' | 'heat';
-/** Ce qui occupe le bas de l'écran en vue Mois. */
-export type MonthPanel = 'day' | 'agenda' | 'none';
-/** Comment une journée est rendue. */
-export type DayLayout = 'timeline' | 'rail' | 'list' | 'three';
-/** Quelle tranche horaire est affichée. */
+/** L'échelle de temps affichée — c'est elle qui change vraiment la disposition. */
+export type Scale = 'year' | 'month' | 'week' | 'day' | 'list';
+/** Ce que raconte une case du mois. */
+export type MonthCells = 'dots' | 'tint' | 'bars' | 'titles' | 'heat';
+/** Ce qui occupe le bas de l'écran sous la grille du mois. */
+export type MonthPanel = 'none' | 'day' | 'agenda';
+export type WeekLayout = 'grid7' | 'grid3' | 'list';
+export type DayLayout = 'timeline' | 'rail' | 'list';
 export type DayRange = 'full' | 'active' | 'auto';
 export type Density = 'compact' | 'normal' | 'roomy';
 export type Detail = 'minimal' | 'normal' | 'full';
 
 export type Settings = {
-  monthLayout: MonthLayout;
+  scale: Scale;
+  monthCells: MonthCells;
   monthPanel: MonthPanel;
+  weekLayout: WeekLayout;
   dayLayout: DayLayout;
   dayRange: DayRange;
   density: Density;
   detail: Detail;
-  tone: Tone;
+  palette: PaletteKey;
+  autoColor: boolean;
   showEmoji: boolean;
   showNowLine: boolean;
   dimWeekend: boolean;
-  weekStart: 0 | 1;
   showWeekNumbers: boolean;
   hideDone: boolean;
+  weekStart: 0 | 1;
 };
 
 export const DEFAULTS: Settings = {
-  monthLayout: 'tint',
+  scale: 'month',
+  monthCells: 'tint',
   monthPanel: 'day',
+  weekLayout: 'grid7',
   dayLayout: 'timeline',
   dayRange: 'full',
   density: 'normal',
   detail: 'normal',
-  tone: 'pastel',
+  palette: 'pastel',
+  autoColor: true,
   showEmoji: true,
   showNowLine: true,
   dimWeekend: false,
-  weekStart: 1,
   showWeekNumbers: false,
   hideDone: false,
+  weekStart: 1,
 };
 
-/** Hauteur d'une heure dans la timeline, selon la densité. */
+/** Hauteur d'une heure dans les grilles horaires. */
 export const HOUR_HEIGHT: Record<Density, number> = {
   compact: 46,
   normal: 70,
   roomy: 98,
 };
 
-/** Hauteur d'une case du mois, selon la disposition puis la densité. */
-export const CELL_HEIGHT: Record<MonthLayout, number> = {
-  minimal: 46,
+/** Hauteur de base d'une case du mois, avant ajustement à l'écran. */
+export const CELL_HEIGHT: Record<MonthCells, number> = {
   dots: 54,
   tint: 58,
   bars: 56,
-  preview: 82,
+  titles: 82,
   heat: 50,
 };
 
@@ -78,11 +85,19 @@ export const DENSITY_SCALE: Record<Density, number> = {
   roomy: 1.16,
 };
 
+/** Les couleurs d'interface qui suivent le jeu de couleurs choisi. */
+export type UiColors = {
+  accent: string;
+  today: string;
+  gradient: readonly [string, string, string];
+};
+
 type Store = {
   settings: Settings;
   update: (patch: Partial<Settings>) => void;
   reset: () => void;
   swatch: (key: ColorKey) => Swatch;
+  ui: UiColors;
 };
 
 const SettingsContext = createContext<Store | null>(null);
@@ -117,17 +132,29 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setSettings((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const reset = useCallback(() => setSettings(DEFAULTS), []);
+  const reset = useCallback(
+    () => setSettings((prev) => ({ ...DEFAULTS, scale: prev.scale })),
+    [],
+  );
 
-  const palette = useMemo(() => tonedPalette(settings.tone), [settings.tone]);
+  const palette = useMemo(
+    () => PALETTES[settings.palette] ?? PALETTES.pastel,
+    [settings.palette],
+  );
+
   const swatch = useCallback(
-    (key: ColorKey) => palette[key] ?? palette.lavender,
+    (key: ColorKey) => palette.colors[key] ?? palette.colors.lavender,
+    [palette],
+  );
+
+  const ui = useMemo<UiColors>(
+    () => ({ accent: palette.accent, today: palette.today, gradient: palette.gradient }),
     [palette],
   );
 
   const value = useMemo<Store>(
-    () => ({ settings, update, reset, swatch }),
-    [settings, update, reset, swatch],
+    () => ({ settings, update, reset, swatch, ui }),
+    [settings, update, reset, swatch, ui],
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
@@ -139,7 +166,6 @@ export function useSettings(): Store {
   return ctx;
 }
 
-/** Raccourci pour les composants qui n'ont besoin que des couleurs. */
 export function useSwatch() {
   return useSettings().swatch;
 }
