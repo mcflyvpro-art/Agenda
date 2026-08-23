@@ -1,22 +1,25 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { hhmm, minutesNow } from '../lib/date';
+import { tapLight } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
 import type { AgendaEvent } from '../types';
+import { Squish } from './Squish';
 
 type Props = {
   events: AgendaEvent[];
   /** afficher le repère de l'heure courante */
   live?: boolean;
+  onPressEvent?: (e: AgendaEvent) => void;
 };
 
 /**
  * La journée ramassée en une barre : où sont les blocs, où sont les trous.
  * On la lit d'un coup d'œil, sans faire défiler quoi que ce soit.
  */
-export function DayBar({ events, live = true }: Props) {
-  const { swatch, ui } = useSettings();
+export function DayBar({ events, live = true, onPressEvent }: Props) {
+  const { swatch } = useSettings();
 
   const timed = useMemo(
     () => events.filter((e) => !e.allDay).sort((a, b) => a.start - b.start),
@@ -46,14 +49,26 @@ export function DayBar({ events, live = true }: Props) {
           const left = pct(e.start);
           const width = `${Math.max(2.5, ((Math.max(e.end, e.start + 20) - e.start) / span) * 100)}%`;
           return (
-            <View
+            <Squish
               key={e.id}
+              scaleTo={0.9}
+              dimTo={1}
+              onPress={
+                onPressEvent
+                  ? () => {
+                      tapLight();
+                      onPressEvent(e);
+                    }
+                  : undefined
+              }
               style={[
                 styles.block,
                 { left: left as any, width: width as any, backgroundColor: c.solid },
                 e.done && { opacity: 0.4 },
               ]}
-            />
+            >
+              <View />
+            </Squish>
           );
         })}
 
@@ -73,9 +88,6 @@ export function DayBar({ events, live = true }: Props) {
         ))}
       </View>
 
-      {timed.length === 0 && (
-        <Text style={[styles.free, { color: ui.accent }]}>journée entièrement libre</Text>
-      )}
     </View>
   );
 }
@@ -101,5 +113,4 @@ const styles = StyleSheet.create({
   },
   tickMid: { textAlign: 'center' },
   tickEnd: { textAlign: 'right' },
-  free: { fontSize: 12.5, fontWeight: '700', marginTop: 8, letterSpacing: -0.1 },
 });

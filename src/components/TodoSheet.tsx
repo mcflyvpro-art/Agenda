@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -14,19 +14,16 @@ import {
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  FadeIn,
-  FadeOut,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { notifySuccess, notifyWarn, tapLight, tapSoft } from '../lib/haptics';
-import { suggestFromTitle } from '../lib/suggest';
+import { notifySuccess, notifyWarn, tapSoft } from '../lib/haptics';
 import { useSettings } from '../store/settings';
-import { COLOR_KEYS, EMOJIS, theme } from '../theme';
-import type { Todo, TodoDraft } from '../types';
+import { theme } from '../theme';
+import type { TodoDraft } from '../types';
 import { SegmentedRow } from './SegmentedRow';
 import { Squish } from './Squish';
 
@@ -41,12 +38,11 @@ type Props = {
 
 const noOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null;
 
+/** Une idée se saisit en une ligne. Le reste attend le calendrier. */
 export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedule }: Props) {
   const { height } = useWindowDimensions();
-  const { settings, swatch } = useSettings();
+  const { ui } = useSettings();
   const [d, setD] = useState<TodoDraft | null>(draft);
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  const touched = useRef({ emoji: false, color: false });
 
   const ty = useSharedValue(height);
   const backdrop = useSharedValue(0);
@@ -54,8 +50,6 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
   useEffect(() => {
     if (visible && draft) {
       setD(draft);
-      setEmojiOpen(false);
-      touched.current = { emoji: false, color: false };
       ty.value = height;
       backdrop.value = 0;
       ty.value = withSpring(0, { damping: 24, stiffness: 220, mass: 0.9 });
@@ -91,8 +85,6 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }));
 
-  const c = useMemo(() => swatch(d?.color ?? 'lavender'), [d?.color, swatch]);
-
   if (!d) {
     return (
       <Modal visible={false} transparent onRequestClose={onClose}>
@@ -102,18 +94,6 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
   }
 
   const set = (patch: Partial<TodoDraft>) => setD((prev) => (prev ? { ...prev, ...patch } : prev));
-
-  const onTitleChange = (title: string) => {
-    const patch: Partial<TodoDraft> = { title };
-    if (settings.autoColor && !d.id) {
-      const guess = suggestFromTitle(title);
-      if (guess) {
-        if (!touched.current.emoji) patch.emoji = guess.emoji;
-        if (!touched.current.color) patch.color = guess.color;
-      }
-    }
-    set(patch);
-  };
 
   return (
     <Modal
@@ -140,10 +120,9 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
             </GestureDetector>
 
             <View style={styles.topBar}>
-              <Squish onPress={dismiss} style={styles.topBtn} scaleTo={0.9}>
-                <Text style={styles.cancel}>Annuler</Text>
+              <Squish onPress={dismiss} style={styles.roundBtn} scaleTo={0.88}>
+                <Ionicons name="close" size={19} color={theme.inkSoft} />
               </Squish>
-              <Text style={styles.topTitle}>{d.id ? "L'idée" : 'Nouvelle idée'}</Text>
               <Squish
                 onPress={() => {
                   if (d.title.trim()) notifySuccess();
@@ -151,10 +130,10 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
                   onSave(d);
                   dismiss();
                 }}
-                style={[styles.saveBtn, { backgroundColor: c.solid }]}
-                scaleTo={0.92}
+                style={[styles.roundBtn, { backgroundColor: ui.accent }]}
+                scaleTo={0.88}
               >
-                <Text style={styles.saveText}>OK</Text>
+                <Ionicons name="checkmark" size={20} color="#FFFFFF" />
               </Squish>
             </View>
 
@@ -163,85 +142,20 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scroll}
             >
-              <View style={[styles.titleRow, { backgroundColor: c.wash }]}>
-                <Squish
-                  onPress={() => {
-                    tapSoft();
-                    setEmojiOpen((v) => !v);
-                  }}
-                  style={styles.emojiBtn}
-                  scaleTo={0.88}
-                >
-                  <Text style={styles.emojiBig}>{d.emoji}</Text>
-                </Squish>
-                <TextInput
-                  value={d.title}
-                  onChangeText={onTitleChange}
-                  placeholder="Qu'est-ce qu'il y a à faire ?"
-                  placeholderTextColor={`${c.deep}66`}
-                  style={[styles.titleInput, noOutline, { color: c.deep }]}
-                  selectionColor={c.solid}
-                  autoFocus={!d.id}
-                  returnKeyType="done"
-                />
-              </View>
-
-              {emojiOpen && (
-                <Animated.View
-                  entering={FadeIn.duration(180)}
-                  exiting={FadeOut.duration(120)}
-                  style={styles.emojiGrid}
-                >
-                  {EMOJIS.map((e) => (
-                    <Squish
-                      key={e}
-                      scaleTo={0.82}
-                      onPress={() => {
-                        tapLight();
-                        touched.current.emoji = true;
-                        set({ emoji: e });
-                        setEmojiOpen(false);
-                      }}
-                      style={[styles.emojiCell, d.emoji === e && { backgroundColor: c.wash }]}
-                    >
-                      <Text style={styles.emojiPick}>{e}</Text>
-                    </Squish>
-                  ))}
-                </Animated.View>
-              )}
-
-              <View style={styles.colorRow}>
-                {COLOR_KEYS.map((k) => {
-                  const s = swatch(k);
-                  const active = d.color === k;
-                  return (
-                    <Squish
-                      key={k}
-                      scaleTo={0.82}
-                      dimTo={1}
-                      onPress={() => {
-                        tapLight();
-                        touched.current.color = true;
-                        set({ color: k });
-                      }}
-                      style={styles.colorHit}
-                    >
-                      <View
-                        style={[
-                          styles.colorRing,
-                          active && { borderColor: s.solid, backgroundColor: s.wash },
-                        ]}
-                      >
-                        <View style={[styles.colorDot, { backgroundColor: s.solid }]} />
-                      </View>
-                    </Squish>
-                  );
-                })}
-              </View>
+              <TextInput
+                value={d.title}
+                onChangeText={(title) => set({ title })}
+                placeholder="Une idée…"
+                placeholderTextColor={theme.inkFaint}
+                style={[styles.titleInput, noOutline]}
+                selectionColor={ui.accent}
+                autoFocus={!d.id}
+                returnKeyType="done"
+                multiline
+              />
 
               <View style={styles.card}>
                 <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Ça prendra à peu près</Text>
                   <SegmentedRow
                     value={d.estimate}
                     onChange={(estimate) => set({ estimate })}
@@ -258,46 +172,46 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
                   <Ionicons
                     name="chatbubble-ellipses-outline"
                     size={17}
-                    color={theme.inkSoft}
+                    color={theme.inkFaint}
                     style={{ marginTop: 2 }}
                   />
                   <TextInput
                     value={d.notes}
                     onChangeText={(notes) => set({ notes })}
-                    placeholder="Notes"
                     placeholderTextColor={theme.inkFaint}
-                    style={[styles.input, styles.notes, noOutline]}
-                    selectionColor={c.solid}
+                    style={[styles.input, noOutline]}
+                    selectionColor={ui.accent}
                     multiline
                   />
                 </View>
               </View>
 
-              <Squish
-                style={[styles.plan, { backgroundColor: c.solid }]}
-                onPress={() => {
-                  tapSoft();
-                  onSchedule(d);
-                  dismiss();
-                }}
-              >
-                <Ionicons name="calendar-outline" size={17} color="#FFFFFF" />
-                <Text style={styles.planText}>Placer dans le calendrier</Text>
-              </Squish>
-
-              {!!d.id && (
+              <View style={styles.actions}>
                 <Squish
-                  style={styles.delete}
+                  style={[styles.plan, { backgroundColor: ui.accent }]}
                   onPress={() => {
-                    notifyWarn();
-                    onDelete(d.id!);
+                    tapSoft();
+                    onSchedule(d);
                     dismiss();
                   }}
                 >
-                  <Ionicons name="trash-outline" size={16} color="#9E1A41" />
-                  <Text style={styles.deleteText}>Supprimer</Text>
+                  <Ionicons name="calendar" size={20} color="#FFFFFF" />
+                  <Ionicons name="arrow-forward" size={15} color="#FFFFFF" style={{ opacity: 0.8 }} />
                 </Squish>
-              )}
+
+                {!!d.id && (
+                  <Squish
+                    style={styles.delete}
+                    onPress={() => {
+                      notifyWarn();
+                      onDelete(d.id!);
+                      dismiss();
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={19} color="#9E1A41" />
+                  </Squish>
+                )}
+              </View>
 
               <View style={{ height: 24 }} />
             </ScrollView>
@@ -326,110 +240,60 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 6,
   },
-  topBtn: { minWidth: 70 },
-  cancel: { fontSize: 15, fontWeight: '600', color: theme.inkSoft, letterSpacing: -0.2 },
-  topTitle: { fontSize: 15.5, fontWeight: '800', color: theme.ink, letterSpacing: -0.3 },
-  saveBtn: {
-    minWidth: 70,
+  roundBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 18,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(32,32,43,0.05)',
   },
-  saveText: { fontSize: 14.5, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
   scroll: { paddingHorizontal: 16 },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: theme.radius.lg,
-    padding: 10,
-    gap: 10,
-  },
-  emojiBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.8)',
-  },
-  emojiBig: { fontSize: 24 },
   titleInput: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.4,
-    paddingVertical: Platform.OS === 'ios' ? 8 : 4,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    color: theme.ink,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    minHeight: 60,
   },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.lg,
-    padding: 6,
-    ...theme.shadow.soft,
-  },
-  emojiCell: {
-    width: `${100 / 8}%`,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-  },
-  emojiPick: { fontSize: 20 },
-  colorRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    paddingHorizontal: 2,
-  },
-  colorHit: { padding: 2 },
-  colorRing: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorDot: { width: 20, height: 20, borderRadius: 10 },
   card: {
-    marginTop: 14,
     backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 4,
     ...theme.shadow.soft,
   },
-  field: { paddingVertical: 12, gap: 9 },
-  fieldLabel: { fontSize: 14.5, fontWeight: '700', color: theme.ink, letterSpacing: -0.25 },
+  field: { paddingVertical: 12 },
   divider: { height: 1, backgroundColor: theme.hairline },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 13 },
-  input: { flex: 1, fontSize: 15, fontWeight: '500', color: theme.ink, letterSpacing: -0.2 },
-  notes: { minHeight: 40, textAlignVertical: 'top' },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: theme.ink,
+    letterSpacing: -0.2,
+    minHeight: 40,
+    textAlignVertical: 'top',
+  },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   plan: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 16,
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderRadius: theme.radius.lg,
   },
-  planText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
   delete: {
-    flexDirection: 'row',
+    width: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 10,
-    paddingVertical: 13,
     borderRadius: theme.radius.lg,
     backgroundColor: '#FDCEDC',
   },
-  deleteText: { fontSize: 14.5, fontWeight: '700', color: '#9E1A41', letterSpacing: -0.2 },
 });

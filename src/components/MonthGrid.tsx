@@ -11,7 +11,7 @@ import {
   weekdayLabels,
 } from '../lib/date';
 import { alpha } from '../lib/color';
-import { tapLight } from '../lib/haptics';
+import { tapLight, tapMedium } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import type { MonthCells } from '../store/settings';
 import { theme, type Swatch } from '../theme';
@@ -23,6 +23,8 @@ type Props = {
   selectedKey: string;
   byDay: Record<string, AgendaEvent[]>;
   onSelect: (key: string) => void;
+  /** appui long sur un jour : on y crée directement */
+  onLongSelect?: (key: string) => void;
   cellHeight?: number;
   /** version réduite utilisée dans la fiche événement */
   compact?: boolean;
@@ -45,6 +47,7 @@ type CellProps = {
   today: string;
   swatch: (k: AgendaEvent['color']) => Swatch;
   onSelect: (key: string) => void;
+  onLongSelect?: (key: string) => void;
 };
 
 const DayCell = memo(function DayCell({
@@ -62,6 +65,7 @@ const DayCell = memo(function DayCell({
   today,
   swatch,
   onSelect,
+  onLongSelect,
 }: CellProps) {
   const key = toKey(date);
   const tint = events[0] ? swatch(events[0].color) : null;
@@ -90,6 +94,15 @@ const DayCell = memo(function DayCell({
         tapLight();
         onSelect(key);
       }}
+      onLongPress={
+        onLongSelect
+          ? () => {
+              tapMedium();
+              onLongSelect(key);
+            }
+          : undefined
+      }
+      delayLongPress={320}
       style={[styles.cell, { height }]}
       scaleTo={0.9}
       dimTo={1}
@@ -235,6 +248,7 @@ export function MonthGrid({
   selectedKey,
   byDay,
   onSelect,
+  onLongSelect,
   cellHeight = 58,
   compact = false,
   layout,
@@ -304,6 +318,7 @@ export function MonthGrid({
                 today={ui.today}
                 swatch={swatch}
                 onSelect={onSelect}
+                onLongSelect={onLongSelect}
               />
             );
           })}

@@ -61,6 +61,7 @@ type Props = {
   selectedKey: string;
   onSelectDay: (key: string) => void;
   onOpenEvent: (e: AgendaEvent) => void;
+  onRemoveEvent: (id: string) => void;
   onCreateAt: (dateKey: string, minutes?: number) => void;
   onOpenSettings: () => void;
   bottomInset: number;
@@ -70,6 +71,7 @@ export function CalendarScreen({
   selectedKey,
   onSelectDay,
   onOpenEvent,
+  onRemoveEvent,
   onCreateAt,
   onOpenSettings,
   bottomInset,
@@ -181,17 +183,11 @@ export function CalendarScreen({
   const { title, subtitle } = useMemo(() => {
     switch (scale) {
       case 'year':
-        return {
-          title: `${visibleYear}`,
-          subtitle: plural(countIn((d) => d.getFullYear() === visibleYear), 'événement'),
-        };
+        return { title: `${visibleYear}`, subtitle: '' };
       case 'week': {
         if (settings.weekLayout === 'grid3') {
           const last = addDays(selectedDate, 2);
-          return {
-            title: `${dayMonth(selectedDate)} – ${dayMonth(last)}`,
-            subtitle: 'trois jours',
-          };
+          return { title: `${dayMonth(selectedDate)} – ${dayMonth(last)}`, subtitle: '' };
         }
         const first = weekDays[0];
         const last = weekDays[6];
@@ -201,24 +197,11 @@ export function CalendarScreen({
         };
       }
       case 'day':
-        return {
-          title: dayLabel,
-          subtitle: isRelative ? longDay(selectedDate) : plural(dayEvents.length, 'événement'),
-        };
+        return { title: dayLabel, subtitle: isRelative ? longDay(selectedDate) : '' };
       case 'list':
-        return { title: 'À venir', subtitle: 'à partir d’aujourd’hui' };
+        return { title: monthYearTitle(new Date()), subtitle: '' };
       default:
-        return {
-          title: monthYearTitle(visibleMonth),
-          subtitle: `${plural(
-            countIn(
-              (d) =>
-                d.getMonth() === visibleMonth.getMonth() &&
-                d.getFullYear() === visibleMonth.getFullYear(),
-            ),
-            'événement',
-          )} ce mois-ci`,
-        };
+        return { title: monthYearTitle(visibleMonth), subtitle: '' };
     }
   }, [
     scale,
@@ -265,7 +248,14 @@ export function CalendarScreen({
             <EmptyDay />
           ) : (
             list.map((e, k) => (
-              <EventCard key={e.id} event={e} index={k} onPress={openEvent} onToggle={toggleDone} />
+              <EventCard
+                key={e.id}
+                event={e}
+                index={k}
+                onPress={openEvent}
+                onToggle={toggleDone}
+                onRemove={onRemoveEvent}
+              />
             ))
           )}
         </ScrollView>
@@ -352,6 +342,7 @@ export function CalendarScreen({
                     byDay={visibleByDay}
                     onOpen={openEvent}
                     onToggle={toggleDone}
+                    onRemove={onRemoveEvent}
                     bottomInset={bottomInset}
                     keepEmpty
                   />
@@ -375,7 +366,12 @@ export function CalendarScreen({
       case 'day':
         return (
           <>
-            <WeekStrip selectedKey={selectedKey} byDay={visibleByDay} onSelect={selectDay} />
+              <WeekStrip
+              selectedKey={selectedKey}
+              byDay={visibleByDay}
+              onSelect={selectDay}
+              onLongSelect={(key: string) => onCreateAt(key)}
+            />
             <View
               style={styles.flex}
               onLayout={(e) => setDayHeight(e.nativeEvent.layout.height)}
@@ -404,9 +400,9 @@ export function CalendarScreen({
             byDay={visibleByDay}
             onOpen={openEvent}
             onToggle={toggleDone}
+            onRemove={onRemoveEvent}
             bottomInset={bottomInset}
             monthHeaders
-            emptyLabel="Rien de prévu dans les six prochains mois."
           />
         );
       }
@@ -427,6 +423,7 @@ export function CalendarScreen({
                       selectedKey={selectedKey}
                       byDay={visibleByDay}
                       onSelect={selectDay}
+                      onLongSelect={(key: string) => onCreateAt(key)}
                       cellHeight={cellHeight}
                     />
                   </View>
@@ -459,6 +456,7 @@ export function CalendarScreen({
                         index={i}
                         onPress={openEvent}
                         onToggle={toggleDone}
+                        onRemove={onRemoveEvent}
                       />
                     ))
                   )}
@@ -472,6 +470,7 @@ export function CalendarScreen({
                 byDay={visibleByDay}
                 onOpen={openEvent}
                 onToggle={toggleDone}
+                onRemove={onRemoveEvent}
                 bottomInset={bottomInset}
               />
             )}
@@ -488,20 +487,21 @@ export function CalendarScreen({
             <Text style={styles.title} numberOfLines={1}>
               {title}
             </Text>
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {subtitle}
-            </Text>
+            {!!subtitle && (
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            )}
           </View>
 
           {!isOnToday && (
             <Animated.View entering={FadeIn.duration(200)}>
               <Squish
-                style={[styles.todayBtn, { backgroundColor: `${ui.accent}22` }]}
+                style={[styles.iconBtn, { backgroundColor: `${ui.accent}1F` }]}
                 onPress={goToday}
-                scaleTo={0.9}
+                scaleTo={0.88}
               >
-                <Ionicons name="locate-outline" size={14} color={ui.accent} />
-                <Text style={[styles.todayText, { color: ui.accent }]}>Aujourd&apos;hui</Text>
+                <Ionicons name="locate" size={18} color={ui.accent} />
               </Squish>
             </Animated.View>
           )}
@@ -550,15 +550,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: -0.1,
   },
-  todayBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  todayText: { fontSize: 12.5, fontWeight: '700', letterSpacing: -0.2 },
   iconBtn: {
     width: 38,
     height: 38,

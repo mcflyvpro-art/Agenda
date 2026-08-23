@@ -29,8 +29,6 @@ export type Draft = Omit<AgendaEvent, 'id' | 'createdAt'> & {
 export type Todo = {
   id: string;
   title: string;
-  emoji: string;
-  color: ColorKey;
   notes: string;
   done: boolean;
   /** durée pressentie, en minutes — sert à pré-remplir le créneau */

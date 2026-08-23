@@ -14,12 +14,12 @@ type Props = {
   byDay: Record<string, AgendaEvent[]>;
   onOpen: (e: AgendaEvent) => void;
   onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
   bottomInset?: number;
   /** garder les jours vides (vue semaine) ou les sauter (planning) */
   keepEmpty?: boolean;
   /** intercaler un titre quand on change de mois */
   monthHeaders?: boolean;
-  emptyLabel?: string;
 };
 
 /** Une liste de jours enchaînés — la vue Planning, et la semaine en liste. */
@@ -28,10 +28,10 @@ export function PlannerList({
   byDay,
   onOpen,
   onToggle,
+  onRemove,
   bottomInset = 0,
   keepEmpty = false,
   monthHeaders = false,
-  emptyLabel = 'Rien de prévu pour le moment.',
 }: Props) {
   const { ui } = useSettings();
 
@@ -55,7 +55,7 @@ export function PlannerList({
       contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: bottomInset + 120 }}
     >
       {groups.length === 0 ? (
-        <EmptyDay label={emptyLabel} />
+        <EmptyDay />
       ) : (
         groups.map((g) => (
           <View key={g.key}>
@@ -71,10 +71,17 @@ export function PlannerList({
                 {relativeDayLabel(g.key)}
               </Text>
               <View style={styles.rule} />
-              <Text style={styles.count}>{g.events.length > 0 ? g.events.length : 'libre'}</Text>
+              <Text style={styles.count}>{g.events.length > 0 ? g.events.length : '·'}</Text>
             </View>
             {g.events.map((e, i) => (
-              <EventCard key={e.id} event={e} index={i} onPress={onOpen} onToggle={onToggle} />
+              <EventCard
+                key={e.id}
+                event={e}
+                index={i}
+                onPress={onOpen}
+                onToggle={onToggle}
+                onRemove={onRemove}
+              />
             ))}
           </View>
         ))

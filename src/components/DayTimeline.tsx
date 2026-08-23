@@ -191,7 +191,7 @@ export function DayTimeline({
                   >
                     {e.title}
                   </Text>
-                  <Text style={[styles.allDayTag, { color: c.deep }]}>journée</Text>
+                  <Ionicons name="sunny" size={14} color={c.deep} />
                 </Squish>
               </Animated.View>
             );
@@ -361,7 +361,6 @@ const styles = StyleSheet.create({
   },
   allDayEmoji: { fontSize: 15 },
   allDayText: { flex: 1, fontSize: 14.5, fontWeight: '700', letterSpacing: -0.2 },
-  allDayTag: { fontSize: 11, fontWeight: '700', opacity: 0.6, letterSpacing: 0.2 },
   hourRow: {
     position: 'absolute',
     left: 0,

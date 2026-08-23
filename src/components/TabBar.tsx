@@ -9,7 +9,7 @@ import { Squish } from './Squish';
 
 export type TabKey = 'home' | 'agenda' | 'todo';
 
-export const TAB_BAR_HEIGHT = 62;
+export const TAB_BAR_HEIGHT = 58;
 
 type Props = {
   tab: TabKey;
@@ -18,10 +18,10 @@ type Props = {
   bottom: number;
 };
 
-const ITEMS: { key: TabKey; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
-  { key: 'home', label: 'Accueil', icon: 'sunny-outline' },
-  { key: 'agenda', label: 'Agenda', icon: 'calendar-outline' },
-  { key: 'todo', label: 'À faire', icon: 'sparkles-outline' },
+const ITEMS: { key: TabKey; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
+  { key: 'home', icon: 'sunny' },
+  { key: 'agenda', icon: 'calendar' },
+  { key: 'todo', icon: 'sparkles' },
 ];
 
 /** Trois portes, toujours à portée de pouce. */
@@ -35,7 +35,6 @@ export function TabBar({ tab, onChange, badge = 0, bottom }: Props) {
           <Item
             key={it.key}
             active={tab === it.key}
-            label={it.label}
             icon={it.icon}
             accent={ui.accent}
             badge={it.key === 'todo' ? badge : 0}
@@ -53,14 +52,12 @@ export function TabBar({ tab, onChange, badge = 0, bottom }: Props) {
 
 function Item({
   active,
-  label,
   icon,
   accent,
   badge,
   onPress,
 }: {
   active: boolean;
-  label: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
   accent: string;
   badge: number;
@@ -74,14 +71,13 @@ function Item({
     <Squish style={styles.item} scaleTo={0.92} dimTo={1} onPress={onPress}>
       <Animated.View style={[styles.pill, { backgroundColor: `${accent}1F` }, pill]} />
       <View>
-        <Ionicons name={icon} size={19} color={active ? accent : theme.inkFaint} />
+        <Ionicons name={icon} size={22} color={active ? accent : 'rgba(32,32,43,0.28)'} />
         {badge > 0 && (
           <View style={[styles.badge, { backgroundColor: accent }]}>
             <Text style={styles.badgeText}>{badge > 9 ? '9+' : badge}</Text>
           </View>
         )}
       </View>
-      <Text style={[styles.label, active && { color: accent, fontWeight: '800' }]}>{label}</Text>
     </Squish>
   );
 }
@@ -108,9 +104,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 10,
   },
-  item: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, height: 50 },
-  pill: { position: 'absolute', left: 6, right: 6, top: 3, bottom: 3, borderRadius: 20 },
-  label: { fontSize: 10.5, fontWeight: '700', color: theme.inkFaint, letterSpacing: -0.1 },
+  item: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 48 },
+  pill: { position: 'absolute', left: 14, right: 14, top: 2, bottom: 2, borderRadius: 22 },
   badge: {
     position: 'absolute',
     top: -4,

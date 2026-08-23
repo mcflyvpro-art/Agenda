@@ -8,6 +8,7 @@ import { SettingsSheet } from '../components/SettingsSheet';
 import { TabBar, TAB_BAR_HEIGHT, type TabKey } from '../components/TabBar';
 import { TodoSheet } from '../components/TodoSheet';
 import { minutesNow, todayKey } from '../lib/date';
+import { suggestFromTitle } from '../lib/suggest';
 import { useEvents } from '../store/events';
 import { useSettings } from '../store/settings';
 import { useTodos } from '../store/todos';
@@ -78,24 +79,28 @@ export function RootScreen() {
     [makeDraft, selectedKey],
   );
 
-  /** Une idée sort de la boîte et va chercher un créneau. */
+  /**
+   * Une idée sort de la boîte et va chercher un créneau.
+   * C'est là qu'elle prend une identité : couleur et emoji devinés du titre,
+   * modifiables ensuite dans la fiche.
+   */
   const scheduleTodo = useCallback(
     (todo: Todo | TodoDraft) => {
       const target = selectedKey === todayKey() ? todayKey() : selectedKey;
+      const guess = settings.autoColor ? suggestFromTitle(todo.title) : null;
       setEventSheet({
         visible: true,
         fromTodo: todo.id,
         draft: makeDraft(target, undefined, {
           title: todo.title,
-          emoji: todo.emoji,
-          color: todo.color,
           notes: todo.notes,
+          ...(guess ? { emoji: guess.emoji, color: guess.color } : {}),
           start: 0,
           end: todo.estimate,
         }),
       });
     },
-    [makeDraft, selectedKey],
+    [makeDraft, selectedKey, settings.autoColor],
   );
 
   const handleSaveEvent = useCallback(
@@ -113,14 +118,7 @@ export function RootScreen() {
     () =>
       setTodoSheet({
         visible: true,
-        draft: {
-          title: '',
-          emoji: '✨',
-          color: 'lavender',
-          notes: '',
-          done: false,
-          estimate: 60,
-        },
+        draft: { title: '', notes: '', done: false, estimate: 60 },
       }),
     [],
   );
@@ -141,6 +139,7 @@ export function RootScreen() {
             selectedKey={selectedKey}
             onSelectDay={setSelectedKey}
             onOpenEvent={openEvent}
+            onRemoveEvent={remove}
             onCreateAt={createAt}
             onOpenSettings={() => setSettingsOpen(true)}
             bottomInset={bottomInset}
@@ -148,7 +147,11 @@ export function RootScreen() {
         );
       case 'todo':
         return (
-          <TodoScreen onOpen={openTodo} onSchedule={scheduleTodo} bottomInset={bottomInset} />
+          <TodoScreen
+            onOpen={openTodo}
+            onSchedule={scheduleTodo}
+            bottomInset={bottomInset}
+          />
         );
       default:
         return (
@@ -161,8 +164,10 @@ export function RootScreen() {
             onCreateToday={() => createAt(todayKey())}
             onOpenEvent={openEvent}
             onToggleEvent={toggleDone}
+            onRemoveEvent={remove}
             onOpenTodo={openTodo}
             onToggleTodo={toggleTodo}
+            onRemoveTodo={removeTodo}
             onScheduleTodo={scheduleTodo}
             onOpenSettings={() => setSettingsOpen(true)}
             bottomInset={bottomInset}
@@ -175,10 +180,12 @@ export function RootScreen() {
     openEvent,
     createAt,
     bottomInset,
+    remove,
     openTodo,
     scheduleTodo,
     toggleDone,
     toggleTodo,
+    removeTodo,
     goAgenda,
   ]);
 
@@ -189,7 +196,10 @@ export function RootScreen() {
       </Animated.View>
 
       <AddButton
-        onPress={() => (tab === 'todo' ? createTodo() : createAt(tab === 'home' ? todayKey() : selectedKey))}
+        onPress={() =>
+          tab === 'todo' ? createTodo() : createAt(tab === 'home' ? todayKey() : selectedKey)
+        }
+        onLongPress={createTodo}
         bottom={bottomInset + 14}
       />
 
@@ -202,7 +212,6 @@ export function RootScreen() {
         onClose={() => setEventSheet((s) => ({ ...s, visible: false, fromTodo: undefined }))}
         onSave={handleSaveEvent}
         onDelete={remove}
-        heading={eventSheet.fromTodo ? 'Placer cette idée' : undefined}
       />
 
       <TodoSheet

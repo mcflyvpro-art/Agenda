@@ -28,30 +28,30 @@ import { SegmentedRow } from './SegmentedRow';
 import { Squish } from './Squish';
 import { Toggle } from './Toggle';
 
-const MONTH_TILES: { key: MonthCells; label: string; hint: string }[] = [
-  { key: 'dots', label: 'Pastilles', hint: 'un point par événement' },
-  { key: 'tint', label: 'Teintes', hint: 'la case prend la couleur' },
-  { key: 'bars', label: 'Barres', hint: 'une barre par événement' },
-  { key: 'titles', label: 'Titres', hint: 'les noms dans la case' },
-  { key: 'heat', label: 'Intensité', hint: 'plus foncé, plus chargé' },
+const MONTH_TILES: { key: MonthCells; label: string }[] = [
+  { key: 'dots', label: 'Pastilles' },
+  { key: 'tint', label: 'Teintes' },
+  { key: 'bars', label: 'Barres' },
+  { key: 'titles', label: 'Titres' },
+  { key: 'heat', label: 'Intensité' },
 ];
 
-const PANEL_TILES: { key: MonthPanel; label: string; hint: string }[] = [
-  { key: 'day', label: 'Le jour', hint: 'le jour choisi' },
-  { key: 'agenda', label: 'À venir', hint: 'les jours suivants' },
-  { key: 'none', label: 'Rien', hint: 'grille plein écran' },
+const PANEL_TILES: { key: MonthPanel; label: string }[] = [
+  { key: 'day', label: 'Le jour' },
+  { key: 'agenda', label: 'À venir' },
+  { key: 'none', label: 'Rien' },
 ];
 
-const WEEK_TILES: { key: WeekLayout; label: string; hint: string }[] = [
-  { key: 'grid7', label: '7 jours', hint: 'la semaine entière' },
-  { key: 'grid3', label: '3 jours', hint: 'plus lisible' },
-  { key: 'list', label: 'Liste', hint: 'jour par jour' },
+const WEEK_TILES: { key: WeekLayout; label: string }[] = [
+  { key: 'grid7', label: '7 jours' },
+  { key: 'grid3', label: '3 jours' },
+  { key: 'list', label: 'Liste' },
 ];
 
-const DAY_TILES: { key: DayLayout; label: string; hint: string }[] = [
-  { key: 'timeline', label: 'Timeline', hint: 'la grille horaire' },
-  { key: 'rail', label: 'Chronologie', hint: 'creux repliés' },
-  { key: 'list', label: 'Liste', hint: 'juste les cartes' },
+const DAY_TILES: { key: DayLayout; label: string }[] = [
+  { key: 'timeline', label: 'Timeline' },
+  { key: 'rail', label: 'Chronologie' },
+  { key: 'list', label: 'Liste' },
 ];
 
 type Tab = 'views' | 'comfort';
@@ -124,24 +124,24 @@ export function SettingsSheet({ visible, onClose }: Props) {
 
           <View style={styles.topBar}>
             <Squish
-              style={styles.resetBtn}
+              style={styles.roundBtn}
+              scaleTo={0.88}
               onPress={() => {
                 tapLight();
                 reset();
               }}
             >
-              <Text style={styles.reset}>Par défaut</Text>
+              <Ionicons name="refresh" size={18} color={theme.inkSoft} />
             </Squish>
-            <Text style={styles.topTitle}>Affichage</Text>
             <Squish
-              style={[styles.doneBtn, { backgroundColor: ui.accent }]}
+              style={[styles.roundBtn, { backgroundColor: ui.accent }]}
+              scaleTo={0.88}
               onPress={() => {
                 notifySuccess();
                 dismiss();
               }}
-              scaleTo={0.92}
             >
-              <Text style={styles.doneText}>Terminé</Text>
+              <Ionicons name="checkmark" size={20} color="#FFFFFF" />
             </Squish>
           </View>
 
@@ -164,13 +164,12 @@ export function SettingsSheet({ visible, onClose }: Props) {
             <Animated.View entering={FadeIn.duration(180)}>
               {tab === 'views' && (
                 <>
-                  <Section title="Mois" sub="Ce que raconte chaque case">
+                  <Section title="Mois">
                     <Tiles>
                       {MONTH_TILES.map((t) => (
                         <View key={t.key} style={styles.tileHalf}>
                           <OptionTile
                             label={t.label}
-                            hint={t.hint}
                             selected={settings.monthCells === t.key}
                             onPress={() => update({ monthCells: t.key })}
                           >
@@ -181,13 +180,12 @@ export function SettingsSheet({ visible, onClose }: Props) {
                     </Tiles>
                   </Section>
 
-                  <Section title="Sous la grille" sub="Le bas de l'écran en vue Mois">
+                  <Section title="Sous la grille">
                     <Tiles>
                       {PANEL_TILES.map((t) => (
                         <View key={t.key} style={styles.tileThird}>
                           <OptionTile
                             label={t.label}
-                            hint={t.hint}
                             selected={settings.monthPanel === t.key}
                             onPress={() => update({ monthPanel: t.key })}
                           >
@@ -204,7 +202,6 @@ export function SettingsSheet({ visible, onClose }: Props) {
                         <View key={t.key} style={styles.tileThird}>
                           <OptionTile
                             label={t.label}
-                            hint={t.hint}
                             selected={settings.weekLayout === t.key}
                             onPress={() => update({ weekLayout: t.key })}
                           >
@@ -221,7 +218,6 @@ export function SettingsSheet({ visible, onClose }: Props) {
                         <View key={t.key} style={styles.tileThird}>
                           <OptionTile
                             label={t.label}
-                            hint={t.hint}
                             selected={settings.dayLayout === t.key}
                             onPress={() => update({ dayLayout: t.key })}
                           >
@@ -234,7 +230,7 @@ export function SettingsSheet({ visible, onClose }: Props) {
 
                   <Section title="Grilles horaires">
                     <View style={styles.card}>
-                      <Field label="Plage affichée" hint="jour et semaine">
+                      <Field label="Plage affichée">
                         <SegmentedRow
                           value={settings.dayRange}
                           onChange={(dayRange) => update({ dayRange })}
@@ -254,7 +250,7 @@ export function SettingsSheet({ visible, onClose }: Props) {
                 <>
                   <Section title="Lecture">
                     <View style={styles.card}>
-                      <Field label="Densité" hint="hauteur des heures et des cases">
+                      <Field label="Densité">
                         <SegmentedRow
                           value={settings.density}
                           onChange={(density) => update({ density })}
@@ -266,7 +262,7 @@ export function SettingsSheet({ visible, onClose }: Props) {
                         />
                       </Field>
                       <View style={styles.divider} />
-                      <Field label="Détail des cartes" hint="ce qu'une carte affiche">
+                      <Field label="Détail des cartes">
                         <SegmentedRow
                           value={settings.detail}
                           onChange={(detail) => update({ detail })}
@@ -285,7 +281,6 @@ export function SettingsSheet({ visible, onClose }: Props) {
                       <SwitchRow
                         icon="color-wand-outline"
                         label="Deviner couleur et emoji"
-                        hint="d'après ce que tu écris"
                         value={settings.autoColor}
                         accent={ui.accent}
                         onChange={(autoColor) => update({ autoColor })}
@@ -363,39 +358,19 @@ function Tiles({ children }: { children: React.ReactNode }) {
   return <View style={styles.tileGrid}>{children}</View>;
 }
 
-function Section({
-  title,
-  sub,
-  children,
-}: {
-  title: string;
-  sub?: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      {!!sub && <Text style={styles.sectionSub}>{sub}</Text>}
       {children}
     </View>
   );
 }
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
-      <View style={styles.fieldHead}>
-        <Text style={styles.fieldLabel}>{label}</Text>
-        {!!hint && <Text style={styles.fieldHint}>{hint}</Text>}
-      </View>
+      <Text style={styles.fieldLabel}>{label}</Text>
       {children}
     </View>
   );
@@ -404,14 +379,12 @@ function Field({
 function SwitchRow({
   icon,
   label,
-  hint,
   value,
   accent,
   onChange,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
-  hint?: string;
   value: boolean;
   accent: string;
   onChange: (v: boolean) => void;
@@ -427,10 +400,7 @@ function SwitchRow({
       }}
     >
       <Ionicons name={icon} size={17} color={value ? accent : theme.inkSoft} />
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.switchLabel, value && { color: theme.ink }]}>{label}</Text>
-        {!!hint && <Text style={styles.switchHint}>{hint}</Text>}
-      </View>
+      <Text style={[styles.switchLabel, value && { color: theme.ink }]}>{label}</Text>
       <Toggle value={value} onChange={onChange} />
     </Squish>
   );
@@ -455,28 +425,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 10,
   },
-  resetBtn: { minWidth: 84 },
-  reset: { fontSize: 14, fontWeight: '600', color: theme.inkFaint, letterSpacing: -0.2 },
-  topTitle: { fontSize: 16, fontWeight: '800', color: theme.ink, letterSpacing: -0.35 },
-  doneBtn: {
-    minWidth: 84,
+  roundBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(32,32,43,0.05)',
   },
-  doneText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
   tabs: { paddingHorizontal: 16, paddingBottom: 4 },
   scroll: { paddingHorizontal: 16 },
   section: { marginTop: 18 },
   sectionTitle: { fontSize: 17, fontWeight: '800', color: theme.ink, letterSpacing: -0.4 },
-  sectionSub: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: theme.inkFaint,
-    marginTop: 2,
-    letterSpacing: -0.1,
-  },
   tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
   tileHalf: { width: '48%' },
   tileThird: { width: '31.4%' },
@@ -489,11 +449,14 @@ const styles = StyleSheet.create({
     ...theme.shadow.soft,
   },
   field: { paddingVertical: 12, gap: 9 },
-  fieldHead: { gap: 1 },
   fieldLabel: { fontSize: 14.5, fontWeight: '700', color: theme.ink, letterSpacing: -0.25 },
-  fieldHint: { fontSize: 11.5, fontWeight: '600', color: theme.inkFaint },
   divider: { height: 1, backgroundColor: theme.hairline },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13 },
-  switchLabel: { fontSize: 14.5, fontWeight: '600', color: theme.inkSoft, letterSpacing: -0.2 },
-  switchHint: { fontSize: 11.5, fontWeight: '600', color: theme.inkFaint, marginTop: 1 },
+  switchLabel: {
+    flex: 1,
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: theme.inkSoft,
+    letterSpacing: -0.2,
+  },
 });

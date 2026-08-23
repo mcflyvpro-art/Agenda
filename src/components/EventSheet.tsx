@@ -41,8 +41,6 @@ type Props = {
   onClose: () => void;
   onSave: (d: Draft) => void;
   onDelete: (id: string) => void;
-  /** remplace le titre de la feuille (ex. quand l'événement vient d'une idée) */
-  heading?: string;
 };
 
 type Section = 'date' | 'start' | 'end' | 'emoji' | null;
@@ -54,7 +52,6 @@ export function EventSheet({
   onClose,
   onSave,
   onDelete,
-  heading,
 }: Props) {
   const { height } = useWindowDimensions();
   const [d, setD] = useState<Draft | null>(draft);
@@ -185,18 +182,15 @@ export function EventSheet({
             </GestureDetector>
 
             <View style={styles.topBar}>
-              <Squish onPress={dismiss} style={styles.topBtn} scaleTo={0.9}>
-                <Text style={styles.cancel}>Annuler</Text>
+              <Squish onPress={dismiss} style={styles.roundBtn} scaleTo={0.88}>
+                <Ionicons name="close" size={19} color={theme.inkSoft} />
               </Squish>
-              <Text style={styles.topTitle}>
-                {heading ?? (isEditing ? "L'événement" : 'Nouvel événement')}
-              </Text>
               <Squish
                 onPress={submit}
-                style={[styles.saveBtn, { backgroundColor: c.solid }]}
-                scaleTo={0.92}
+                style={[styles.roundBtn, { backgroundColor: c.solid }]}
+                scaleTo={0.88}
               >
-                <Text style={styles.saveText}>OK</Text>
+                <Ionicons name="checkmark" size={20} color="#FFFFFF" />
               </Squish>
             </View>
 
@@ -218,7 +212,7 @@ export function EventSheet({
                   <TextInput
                     value={d.title}
                     onChangeText={onTitleChange}
-                    placeholder="Nom de l'événement"
+                    placeholder="Titre"
                     placeholderTextColor={`${c.deep}66`}
                     style={[styles.titleInput, noOutline, { color: c.deep }]}
                     selectionColor={c.solid}
@@ -292,7 +286,6 @@ export function EventSheet({
               >
                 <Row
                   icon="calendar-outline"
-                  label="Date"
                   value={chipDay(fromKey(d.date))}
                   active={section === 'date'}
                   accent={c.deep}
@@ -351,9 +344,7 @@ export function EventSheet({
                     size={17}
                     color={d.allDay ? c.deep : theme.inkSoft}
                   />
-                  <Text style={[styles.rowLabel, d.allDay && { color: c.deep }]}>
-                    Toute la journée
-                  </Text>
+                  <View style={{ flex: 1 }} />
                   <Toggle
                     value={d.allDay}
                     color={c.solid}
@@ -369,7 +360,6 @@ export function EventSheet({
                     <View style={styles.divider} />
                     <Row
                       icon="play-outline"
-                      label="Début"
                       value={hhmm(d.start)}
                       active={section === 'start'}
                       accent={c.deep}
@@ -383,7 +373,6 @@ export function EventSheet({
                     )}
                     <Row
                       icon="flag-outline"
-                      label="Fin"
                       value={hhmm(d.end)}
                       active={section === 'end'}
                       accent={c.deep}
@@ -440,8 +429,7 @@ export function EventSheet({
                     dismiss();
                   }}
                 >
-                  <Ionicons name="trash-outline" size={16} color="#C2557A" />
-                  <Text style={styles.deleteText}>Supprimer l'événement</Text>
+                  <Ionicons name="trash-outline" size={19} color="#9E1A41" />
                 </Squish>
               )}
 
@@ -456,14 +444,12 @@ export function EventSheet({
 
 function Row({
   icon,
-  label,
   value,
   active,
   accent,
   onPress,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
   value: string;
   active: boolean;
   accent: string;
@@ -471,8 +457,8 @@ function Row({
 }) {
   return (
     <Squish onPress={onPress} style={styles.row} scaleTo={0.985} dimTo={1}>
-      <Ionicons name={icon} size={17} color={active ? accent : theme.inkSoft} />
-      <Text style={[styles.rowLabel, active && { color: accent }]}>{label}</Text>
+      <Ionicons name={icon} size={18} color={active ? accent : theme.inkFaint} />
+      <View style={{ flex: 1 }} />
       <View style={[styles.chip, active && { backgroundColor: `${accent}1A` }]}>
         <Text style={[styles.chipText, active && { color: accent }]}>{value}</Text>
       </View>
@@ -503,17 +489,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 10,
   },
-  topBtn: { minWidth: 70 },
-  cancel: { fontSize: 15, fontWeight: '600', color: theme.inkSoft, letterSpacing: -0.2 },
-  topTitle: { fontSize: 15.5, fontWeight: '800', color: theme.ink, letterSpacing: -0.3 },
-  saveBtn: {
-    minWidth: 70,
+  roundBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 18,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(32,32,43,0.05)',
   },
-  saveText: { fontSize: 14.5, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
   scroll: { paddingHorizontal: 16 },
   titleRow: {
     flexDirection: 'row',
@@ -579,7 +562,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 13,
   },
-  rowLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: theme.ink, letterSpacing: -0.2 },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -619,14 +601,11 @@ const styles = StyleSheet.create({
   },
   notes: { minHeight: 44, textAlignVertical: 'top' },
   delete: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     marginTop: 16,
-    paddingVertical: 14,
+    paddingVertical: 15,
     borderRadius: theme.radius.lg,
-    backgroundColor: '#FFE4EC',
+    backgroundColor: '#FDCEDC',
   },
-  deleteText: { fontSize: 15, fontWeight: '700', color: '#C2557A', letterSpacing: -0.2 },
 });

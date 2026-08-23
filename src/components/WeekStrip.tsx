@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 import { fromKey, isSameDay, shortDay, toKey, weekOf } from '../lib/date';
-import { tapLight } from '../lib/haptics';
+import { tapLight, tapMedium } from '../lib/haptics';
 import { theme } from '../theme';
 import { useSettings } from '../store/settings';
 import type { AgendaEvent } from '../types';
@@ -12,10 +12,11 @@ type Props = {
   selectedKey: string;
   byDay: Record<string, AgendaEvent[]>;
   onSelect: (key: string) => void;
+  onLongSelect?: (key: string) => void;
 };
 
 /** Bandeau de semaine du haut de la vue Jour. */
-export function WeekStrip({ selectedKey, byDay, onSelect }: Props) {
+export function WeekStrip({ selectedKey, byDay, onSelect, onLongSelect }: Props) {
   const { settings, swatch, ui } = useSettings();
   const days = weekOf(fromKey(selectedKey), settings.weekStart);
   const now = new Date();
@@ -37,6 +38,15 @@ export function WeekStrip({ selectedKey, byDay, onSelect }: Props) {
               tapLight();
               onSelect(key);
             }}
+            onLongPress={
+              onLongSelect
+                ? () => {
+                    tapMedium();
+                    onLongSelect(key);
+                  }
+                : undefined
+            }
+            delayLongPress={320}
           >
             <Text style={[styles.label, selected && { color: theme.ink, fontWeight: '800' }]}>
               {shortDay(d)}

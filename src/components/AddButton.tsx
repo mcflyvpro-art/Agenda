@@ -7,7 +7,9 @@ import { tapMedium } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import { Squish } from './Squish';
 
-export function AddButton({ onPress, bottom }: { onPress: () => void; bottom: number }) {
+type Props = { onPress: () => void; onLongPress?: () => void; bottom: number };
+
+export function AddButton({ onPress, onLongPress, bottom }: Props) {
   const { ui } = useSettings();
   return (
     <Animated.View
@@ -21,6 +23,15 @@ export function AddButton({ onPress, bottom }: { onPress: () => void; bottom: nu
           tapMedium();
           onPress();
         }}
+        onLongPress={
+          onLongPress
+            ? () => {
+                tapMedium();
+                onLongPress();
+              }
+            : undefined
+        }
+        delayLongPress={320}
         style={[styles.shadow, { shadowColor: ui.accent }]}
       >
         <LinearGradient

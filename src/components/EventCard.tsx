@@ -3,20 +3,20 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { durationLabel, hhmm } from '../lib/date';
-import { tapSoft } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
 import type { AgendaEvent } from '../types';
-import { Squish } from './Squish';
+import { SwipeRow } from './SwipeRow';
 
 type Props = {
   event: AgendaEvent;
   onPress: (e: AgendaEvent) => void;
   onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
   index?: number;
 };
 
-export function EventCard({ event, onPress, onToggle, index = 0 }: Props) {
+export function EventCard({ event, onPress, onToggle, onRemove, index = 0 }: Props) {
   const { settings, swatch } = useSettings();
   const c = swatch(event.color);
   const done = event.done;
@@ -25,92 +25,90 @@ export function EventCard({ event, onPress, onToggle, index = 0 }: Props) {
 
   return (
     <Animated.View
-      entering={FadeIn.delay(Math.min(index, 6) * 40).duration(280)}
+      entering={FadeIn.delay(Math.min(index, 6) * 35).duration(240)}
       exiting={FadeOut.duration(140)}
+      style={styles.slot}
     >
-      <Squish
-        onPress={() => {
-          tapSoft();
-          onPress(event);
-        }}
-        style={[
-          styles.card,
-          { backgroundColor: c.wash, opacity: done ? 0.6 : 1 },
-          minimal && { paddingVertical: 9 },
-        ]}
+      <SwipeRow
+        onRight={() => onToggle(event.id)}
+        onLeft={() => onRemove(event.id)}
+        onTap={() => onPress(event)}
+        onDoubleTap={() => onToggle(event.id)}
+        rightIcon={done ? 'arrow-undo' : 'checkmark'}
+        radius={theme.radius.lg}
       >
-        <View style={[styles.bar, { backgroundColor: c.solid }]} />
-
-        {settings.showEmoji && (
-          <View style={[styles.emojiBubble, minimal && styles.emojiBubbleSmall]}>
-            <Text style={[styles.emoji, minimal && { fontSize: 15 }]}>{event.emoji}</Text>
-          </View>
-        )}
-
-        <View style={styles.body}>
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.title,
-              { color: c.deep },
-              minimal && { fontSize: 15 },
-              done && { textDecorationLine: 'line-through' },
-            ]}
-          >
-            {event.title}
-          </Text>
-
-          {!minimal && (
-            <View style={styles.metaRow}>
-              <Text style={[styles.meta, { color: c.deep }]}>
-                {event.allDay ? 'Toute la journée' : `${hhmm(event.start)} – ${hhmm(event.end)}`}
-              </Text>
-              {!event.allDay && (
-                <>
-                  <View style={[styles.dot, { backgroundColor: c.solid }]} />
-                  <Text style={[styles.meta, { color: c.deep, opacity: 0.75 }]}>
-                    {durationLabel(event.start, event.end)}
-                  </Text>
-                </>
-              )}
-            </View>
-          )}
-
-          {full && !!event.location && (
-            <View style={styles.metaRow}>
-              <Ionicons name="location-outline" size={12} color={c.deep} style={{ opacity: 0.7 }} />
-              <Text numberOfLines={1} style={[styles.meta, { color: c.deep, opacity: 0.8 }]}>
-                {event.location}
-              </Text>
-            </View>
-          )}
-          {full && !!event.notes && (
-            <Text numberOfLines={2} style={[styles.notes, { color: c.deep }]}>
-              {event.notes}
-            </Text>
-          )}
-        </View>
-
-        <Squish
-          hitSlop={10}
-          onPress={() => {
-            tapSoft();
-            onToggle(event.id);
-          }}
+        <View
           style={[
-            styles.check,
-            { borderColor: c.solid, backgroundColor: done ? c.solid : 'transparent' },
+            styles.card,
+            { backgroundColor: c.wash, opacity: done ? 0.6 : 1 },
+            minimal && { paddingVertical: 10 },
           ]}
-          scaleTo={0.82}
         >
-          {done ? <Ionicons name="checkmark" size={15} color="#FFFFFF" /> : <View />}
-        </Squish>
-      </Squish>
+          <View style={[styles.bar, { backgroundColor: c.solid }]} />
+
+          {settings.showEmoji && (
+            <View style={[styles.emojiBubble, minimal && styles.emojiBubbleSmall]}>
+              <Text style={[styles.emoji, minimal && { fontSize: 15 }]}>{event.emoji}</Text>
+            </View>
+          )}
+
+          <View style={styles.body}>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.title,
+                { color: c.deep },
+                minimal && { fontSize: 15 },
+                done && { textDecorationLine: 'line-through' },
+              ]}
+            >
+              {event.title}
+            </Text>
+
+            {!minimal && (
+              <View style={styles.metaRow}>
+                {event.allDay ? (
+                  <Ionicons name="sunny" size={13} color={c.deep} />
+                ) : (
+                  <>
+                    <Text style={[styles.meta, { color: c.deep }]}>
+                      {hhmm(event.start)} – {hhmm(event.end)}
+                    </Text>
+                    <View style={[styles.dot, { backgroundColor: c.solid }]} />
+                    <Text style={[styles.meta, { color: c.deep, opacity: 0.75 }]}>
+                      {durationLabel(event.start, event.end)}
+                    </Text>
+                  </>
+                )}
+              </View>
+            )}
+
+            {full && !!event.location && (
+              <View style={styles.metaRow}>
+                <Ionicons name="location-outline" size={12} color={c.deep} style={{ opacity: 0.7 }} />
+                <Text numberOfLines={1} style={[styles.meta, { color: c.deep, opacity: 0.8 }]}>
+                  {event.location}
+                </Text>
+              </View>
+            )}
+            {full && !!event.notes && (
+              <Text numberOfLines={2} style={[styles.notes, { color: c.deep }]}>
+                {event.notes}
+              </Text>
+            )}
+          </View>
+
+          <View style={[styles.state, { borderColor: c.solid }, done && { backgroundColor: c.solid }]}>
+            {done && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+          </View>
+        </View>
+      </SwipeRow>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  slot: { marginBottom: 10 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -118,7 +116,6 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingRight: 14,
     paddingLeft: 18,
-    marginBottom: 10,
     overflow: 'hidden',
   },
   bar: {
@@ -147,13 +144,14 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12.5, fontWeight: '600', letterSpacing: -0.1 },
   notes: { fontSize: 12.5, fontWeight: '500', opacity: 0.75, marginTop: 4, lineHeight: 17 },
   dot: { width: 3, height: 3, borderRadius: 2 },
-  check: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+  state: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    opacity: 0.75,
   },
 });

@@ -71,7 +71,7 @@ export function DayRail({ dateKey, events, onCreateAt, onOpen, onToggle, bottomI
               <Text numberOfLines={1} style={[styles.allDayText, { color: c.deep }]}>
                 {e.title}
               </Text>
-              <Text style={[styles.allDayTag, { color: c.deep }]}>journée</Text>
+              <Ionicons name="sunny" size={14} color={c.deep} />
             </Squish>
           </Animated.View>
         );
@@ -95,7 +95,7 @@ export function DayRail({ dateKey, events, onCreateAt, onOpen, onToggle, bottomI
               <View style={styles.gapRail}>
                 <View style={styles.dashed} />
               </View>
-              <Text style={styles.gapText}>{durationLabel(row.from, row.to)} de libre</Text>
+              <Text style={styles.gapText}>{durationLabel(row.from, row.to)}</Text>
               <Ionicons name="add" size={14} color={theme.inkFaint} />
             </Squish>
           );
@@ -156,11 +156,7 @@ export function DayRail({ dateKey, events, onCreateAt, onOpen, onToggle, bottomI
                 >
                   {e.title}
                 </Text>
-                {running && (
-                  <View style={[styles.live, { backgroundColor: c.solid }]}>
-                    <Text style={styles.liveText}>en cours</Text>
-                  </View>
-                )}
+                {running && <View style={[styles.livePulse, { backgroundColor: c.solid }]} />}
               </View>
               {settings.detail !== 'minimal' && (
                 <Text style={[styles.cardMeta, { color: c.deep }]}>
@@ -225,8 +221,7 @@ const styles = StyleSheet.create({
   cardTitle: { flex: 1, fontSize: 15.5, fontWeight: '700', letterSpacing: -0.3 },
   cardMeta: { fontSize: 12.5, fontWeight: '600', opacity: 0.8, marginTop: 3 },
   cardNotes: { fontSize: 12.5, fontWeight: '500', opacity: 0.7, marginTop: 4, lineHeight: 17 },
-  live: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
-  liveText: { fontSize: 9.5, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.2 },
+  livePulse: { width: 8, height: 8, borderRadius: 4 },
   gapRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 6, marginBottom: 10 },
   gapRail: { width: 64, alignItems: 'flex-end', paddingRight: 7 },
   dashed: {

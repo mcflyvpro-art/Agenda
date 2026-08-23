@@ -11,8 +11,8 @@ import React, {
 import { uid } from '../lib/id';
 import type { Todo, TodoDraft } from '../types';
 
-const STORAGE_KEY = 'agenda.todos.v1';
-const SEED_KEY = 'agenda.todos.seeded.v1';
+const STORAGE_KEY = 'agenda.todos.v2';
+const SEED_KEY = 'agenda.todos.seeded.v2';
 
 /** Quelques exemples au tout premier lancement, pour que la boîte ne soit pas vide. */
 const SEED_ON_FIRST_LAUNCH = true;
@@ -33,20 +33,18 @@ const TodosContext = createContext<Store | null>(null);
 
 function seed(): Todo[] {
   const now = Date.now();
-  const mk = (title: string, emoji: string, color: Todo['color'], i: number): Todo => ({
+  const mk = (title: string, i: number): Todo => ({
     id: uid(),
     title,
-    emoji,
-    color,
     notes: '',
     done: false,
     estimate: 60,
     createdAt: now - i * 1000,
   });
   return [
-    mk('Réviser le DS de maths', '📚', 'lavender', 0),
-    mk('Appeler le dentiste', '📞', 'sky', 1),
-    mk('Trier les photos de cet été', '🎨', 'lilac', 2),
+    mk('Réviser le DS de maths', 0),
+    mk('Appeler le dentiste', 1),
+    mk('Trier les photos de cet été', 2),
   ];
 }
 
@@ -97,15 +95,7 @@ export function TodosProvider({ children }: { children: React.ReactNode }) {
 
   const add = useCallback(
     (title: string, patch: Partial<TodoDraft> = {}) =>
-      save({
-        title,
-        emoji: '✨',
-        color: 'lavender',
-        notes: '',
-        done: false,
-        estimate: 60,
-        ...patch,
-      }),
+      save({ title, notes: '', done: false, estimate: 60, ...patch }),
     [save],
   );
 

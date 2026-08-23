@@ -16,25 +16,47 @@ L'app tient en trois écrans, une barre en bas pour passer de l'un à l'autre.
 
 Le premier écran répond à une seule question : **c'est quoi, aujourd'hui ?**
 
-- Un salut selon l'heure, la date en toutes lettres.
+- La date, le nombre de moments, le temps occupé.
 - La journée ramassée en **une barre** : où sont les blocs, où sont les trous,
-  où en est-on. On la lit sans faire défiler.
-- **Ensuite** : le prochain moment mis en avant, avec le temps qui reste
-  (« dans 1 h 20 », « en cours »). Sinon, une invitation à caler quelque chose.
-- **Ta journée** : les cartes du jour.
-- **À faire** : les trois idées en attente, avec un lien vers la boîte.
+  où en est-on. On la lit sans faire défiler, et chaque bloc s'ouvre au toucher.
+- Le prochain moment mis en avant, avec le temps qui reste. Sinon, un gros **+**.
+- Les cartes du jour, puis les trois idées en attente.
+
+L'écran ne contient aucune phrase explicative : rien que des données, des icônes et
+des couleurs.
 
 ### À faire — la boîte à idées
 
-Un fourre-tout assumé pour ce qui n'a pas encore de place.
+Un fourre-tout assumé. **Rien n'a d'identité dans la boîte** : pas de couleur, pas d'emoji,
+juste ce qui est écrit. L'identité vient plus tard, au moment de placer l'idée dans le
+calendrier — c'est là qu'elle devient un événement avec sa couleur et son emoji.
 
-- Un champ tout en haut : on écrit, on valide, c'est rangé. L'emoji et la couleur
-  sont devinés au passage.
+- Un champ tout en haut : on écrit, on valide au clavier, c'est rangé.
 - Chaque idée porte une durée pressentie (15 min, 30 min, 1 h, 2 h).
-- Le bouton **Placer** ouvre la fiche d'événement déjà remplie — titre, emoji,
-  couleur, durée — il ne reste qu'à choisir le jour et l'heure. Une fois posée
-  dans le calendrier, l'idée sort de la boîte.
-- Les idées cochées descendent dans une section « terminées », qu'on peut vider.
+- Les idées cochées descendent sous un trait, qu'on peut vider.
+
+### Les gestes
+
+L'app ne s'explique pas, elle se manipule.
+
+| Où | Geste | Effet |
+|---|---|---|
+| Toute carte (idée ou événement) | glisser vers la **droite** | cocher / décocher |
+| Toute carte | glisser vers la **gauche** | supprimer |
+| Toute carte | **tap** | ouvrir la fiche |
+| Idée | **double tap** | la placer dans le calendrier |
+| Événement | **double tap** | cocher |
+| Bouton **+** | tap | nouvel événement |
+| Bouton **+** | **appui long** | nouvelle idée |
+| Jour du mois, bandeau de semaine | tap | sélectionner |
+| Jour du mois, bandeau de semaine | **appui long** | créer sur ce jour |
+| Timeline, créneau vide | tap | créer à cette heure |
+| Timeline, événement | appui long | cocher |
+| Chronologie, trou | tap | créer dans ce trou |
+| Barre du jour (accueil) | tap sur un bloc | ouvrir l'événement |
+| Année | tap sur un mois | y entrer |
+| Partout | glisser horizontalement | changer de page |
+| Feuilles | glisser vers le bas | fermer |
 
 ### Agenda — cinq échelles de temps
 
@@ -94,7 +116,7 @@ reste court. Les dispositions se choisissent en vignettes : chaque option dessin
 son propre rendu en miniature, avec les couleurs du moment.
 
 Le reste : emojis, ligne de l'heure actuelle, week-end en retrait, numéros de semaine,
-masquer ce qui est fait, premier jour de la semaine. « Par défaut » remet tout en place.
+masquer ce qui est fait, premier jour de la semaine. L'icône de gauche remet tout en place.
 
 Tout est stocké **en local sur le téléphone** : aucun compte, aucun serveur, aucune donnée
 qui sort. Interface entièrement en français.

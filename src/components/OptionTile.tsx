@@ -9,14 +9,13 @@ import { Squish } from './Squish';
 
 type Props = {
   label: string;
-  hint?: string;
   selected: boolean;
   onPress: () => void;
   children: React.ReactNode;
 };
 
 /** Vignette de disposition : l'aperçu fait la démonstration, le texte confirme. */
-export function OptionTile({ label, hint, selected, onPress, children }: Props) {
+export function OptionTile({ label, selected, onPress, children }: Props) {
   const { ui } = useSettings();
   return (
     <Squish
@@ -34,11 +33,6 @@ export function OptionTile({ label, hint, selected, onPress, children }: Props) 
           <Text style={[styles.label, selected && { color: ui.accent }]} numberOfLines={1}>
             {label}
           </Text>
-          {!!hint && (
-            <Text style={styles.hint} numberOfLines={1}>
-              {hint}
-            </Text>
-          )}
         </View>
         {selected && (
           <Animated.View
@@ -67,7 +61,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 7, paddingHorizontal: 2 },
   texts: { flex: 1 },
   label: { fontSize: 13, fontWeight: '800', color: theme.ink, letterSpacing: -0.25 },
-  hint: { fontSize: 10.5, fontWeight: '600', color: theme.inkFaint, marginTop: 1 },
   check: {
     width: 18,
     height: 18,
