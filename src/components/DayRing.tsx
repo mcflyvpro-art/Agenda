@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Line } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import { hhmm } from '../lib/date';
 import { useSettings } from '../store/settings';
 import type { AgendaEvent } from '../types';
@@ -11,73 +11,107 @@ type Props = {
   size?: number;
 };
 
+const DAY = 1440;
+
 /**
- * L'anneau du jour : l'arc plein montre où on en est entre minuit et minuit,
- * chaque point marque un événement à l'heure où il tombe sur le cadran,
- * et le centre affiche l'heure qui tourne.
+ * Le cadran du jour, en deux anneaux concentriques.
+ *
+ * L'anneau extérieur, fin, est la journée qui s'écoule : son extrémité
+ * arrondie marque l'heure qu'il est. L'anneau intérieur, épais, porte les
+ * événements — chacun est un arc à sa place et à sa durée réelles, pas une
+ * pastille : on lit d'un coup d'œil où la journée est pleine et où elle
+ * respire. Pas de graduations : le cadran se lit par ses proportions.
  */
-export function DayRing({ events, now, size = 124 }: Props) {
+export function DayRing({ events, now, size = 132 }: Props) {
   const { swatch } = useSettings();
-  const stroke = 9;
-  const r = (size - stroke) / 2;
+
   const c = size / 2;
-  const circumference = 2 * Math.PI * r;
-  const progress = Math.max(0.006, Math.min(1, now / 1440));
+  const trackStroke = 4.5;
+  const eventStroke = 10;
+  const rTrack = (size - trackStroke) / 2;
+  const rEvent = rTrack - trackStroke / 2 - eventStroke / 2 - 5;
 
-  const timed = events.filter((e) => !e.allDay);
+  const circTrack = 2 * Math.PI * rTrack;
+  const circEvent = 2 * Math.PI * rEvent;
 
-  const onRing = (minutes: number, radius: number) => {
-    const angle = (minutes / 1440) * Math.PI * 2 - Math.PI / 2;
-    return { x: c + radius * Math.cos(angle), y: c + radius * Math.sin(angle) };
-  };
+  // toujours un filet visible, jamais un arc complet à minuit pile
+  const progress = Math.max(0.004, Math.min(1, now / DAY));
+
+  /**
+   * Un arc trop court devient invisible : on lui garantit une longueur
+   * minimale, sinon un rendez-vous d'un quart d'heure disparaît du cadran.
+   */
+  const arcs = useMemo(() => {
+    const minLen = circEvent * 0.018;
+    return events
+      .filter((e) => !e.allDay && e.end > e.start)
+      .map((e) => {
+        const startFrac = Math.max(0, Math.min(1, e.start / DAY));
+        const rawLen = ((Math.min(DAY, e.end) - e.start) / DAY) * circEvent;
+        const len = Math.max(minLen, Math.min(circEvent, rawLen));
+        return {
+          id: e.id,
+          color: swatch(e.color).solid,
+          done: e.done,
+          len,
+          offset: -startFrac * circEvent,
+        };
+      });
+  }, [events, circEvent, swatch]);
 
   return (
     <View style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
-        <Circle cx={c} cy={c} r={r} stroke="rgba(255,255,255,0.26)" strokeWidth={stroke} fill="none" />
-        {[0, 6, 12, 18].map((h) => {
-          const inner = onRing(h * 60, r - stroke / 2 - 2);
-          const outer = onRing(h * 60, r + stroke / 2 + 2);
-          return (
-            <Line
-              key={h}
-              x1={inner.x}
-              y1={inner.y}
-              x2={outer.x}
-              y2={outer.y}
-              stroke="rgba(255,255,255,0.4)"
-              strokeWidth={1.5}
-            />
-          );
-        })}
+        {/* la journée, en creux */}
         <Circle
           cx={c}
           cy={c}
-          r={r}
+          r={rTrack}
+          stroke="rgba(255,255,255,0.22)"
+          strokeWidth={trackStroke}
+          fill="none"
+        />
+        {/* le lit des événements */}
+        <Circle
+          cx={c}
+          cy={c}
+          r={rEvent}
+          stroke="rgba(255,255,255,0.14)"
+          strokeWidth={eventStroke}
+          fill="none"
+        />
+
+        {arcs.map((a) => (
+          <Circle
+            key={a.id}
+            cx={c}
+            cy={c}
+            r={rEvent}
+            stroke={a.color}
+            strokeWidth={eventStroke}
+            strokeLinecap="butt"
+            fill="none"
+            opacity={a.done ? 0.4 : 0.95}
+            strokeDasharray={`${a.len}, ${circEvent}`}
+            strokeDashoffset={a.offset}
+            transform={`rotate(-90 ${c} ${c})`}
+          />
+        ))}
+
+        {/* l'heure qu'il est : l'extrémité arrondie de l'arc écoulé */}
+        <Circle
+          cx={c}
+          cy={c}
+          r={rTrack}
           stroke="#FFFFFF"
-          strokeWidth={stroke}
+          strokeWidth={trackStroke}
           fill="none"
           strokeLinecap="round"
-          strokeDasharray={`${circumference}, ${circumference}`}
-          strokeDashoffset={circumference * (1 - progress)}
+          strokeDasharray={`${circTrack * progress}, ${circTrack}`}
           transform={`rotate(-90 ${c} ${c})`}
         />
-        {timed.map((e) => {
-          const p = onRing(e.start, r);
-          return (
-            <Circle
-              key={e.id}
-              cx={p.x}
-              cy={p.y}
-              r={4.5}
-              fill={swatch(e.color).solid}
-              stroke="#FFFFFF"
-              strokeWidth={1.5}
-              opacity={e.done ? 0.45 : 1}
-            />
-          );
-        })}
       </Svg>
+
       <View style={[StyleSheet.absoluteFill, styles.center]}>
         <Text style={styles.clock}>{hhmm(now)}</Text>
       </View>
@@ -88,10 +122,10 @@ export function DayRing({ events, now, size = 124 }: Props) {
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   clock: {
-    fontSize: 19,
+    fontSize: 25,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.4,
+    letterSpacing: -0.8,
     fontVariant: ['tabular-nums'],
   },
 });

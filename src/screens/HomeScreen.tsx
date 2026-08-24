@@ -176,7 +176,7 @@ export function HomeScreen({
               onOpenAgenda();
             }}
           >
-            <DayRing events={all} now={now} size={116} />
+            <DayRing events={all} now={now} size={132} />
 
             <View style={styles.tiles}>
               <Stat label="Prévus" value={`${all.length}`} />
