@@ -120,7 +120,14 @@ export function Pager({ count, index, width, onIndexChange, renderPage, pageHeig
   const slotSize = pageHeight ? { width, height: pageHeight } : { width, height: '100%' as const };
 
   return (
-    <GestureDetector gesture={pan}>
+    // touchAction="pan-y" (web) : par défaut, un GestureDetector coupe tout
+    // défilement natif dans toute sa sous-arborescence — même celui d'un
+    // ScrollView vertical bien à l'intérieur d'une page. En autorisant
+    // explicitement le pan vertical natif, on laisse le navigateur défiler
+    // normalement (y compris quand le doigt part d'un bouton) tout en
+    // réservant le mouvement horizontal à ce geste, pour le changement de
+    // page.
+    <GestureDetector gesture={pan} touchAction="pan-y">
       <View style={[styles.clip, pageHeight ? { height: pageHeight } : { height: '100%' }, style]}>
         {hasPrev && (
           <Animated.View style={[styles.slot, slotSize, prevStyle]}>

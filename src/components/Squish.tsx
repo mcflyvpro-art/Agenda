@@ -1,11 +1,5 @@
 import React from 'react';
-import { StyleProp, ViewStyle } from 'react-native';
-// Le Pressable de gesture-handler (pas celui de react-native) : construit sur
-// le même système de gestes que le Pager et les lignes glissables (SwipeRow),
-// il sait céder correctement la main quand un geste parent (un swipe de page)
-// est en train de capturer le toucher — sans ça, relâcher le doigt après un
-// balayage peut aussi déclencher le tap qu'il y a en dessous.
-import { Pressable, PressableProps } from 'react-native-gesture-handler';
+import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,

@@ -157,7 +157,10 @@ export function SwipeRow({
         </Animated.View>
       )}
 
-      <GestureDetector gesture={gesture}>
+      {/* touchAction="pan-y" (web) : laisse le défilement vertical natif de
+          la liste passer à travers cette ligne, sinon impossible de
+          scroller la liste en posant le doigt dessus. */}
+      <GestureDetector gesture={gesture} touchAction="pan-y">
         <Animated.View style={card}>{children}</Animated.View>
       </GestureDetector>
     </View>

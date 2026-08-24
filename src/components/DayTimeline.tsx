@@ -1,11 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-// Pressable de gesture-handler ici aussi : cette zone tactile vit dans le
-// même arbre que le Pager (le swipe de jour) et doit céder proprement la
-// main quand ce dernier capture le geste, plutôt que de déclencher un tap
-// résiduel à la fin d'un balayage.
-import { Pressable } from 'react-native-gesture-handler';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { fromKey, hhmm, minutesNow, roundToQuarter, shortDay, todayKey } from '../lib/date';
 import { tapLight, tapSoft } from '../lib/haptics';
