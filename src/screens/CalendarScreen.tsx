@@ -86,7 +86,8 @@ export function CalendarScreen({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { byDay, toggleDone, events } = useEvents();
-  const { settings, update, ui } = useSettings();
+  const { settings, update, ui, swatch } = useSettings();
+  const board = swatch('mint');
   const scale = settings.scale;
 
   const anchorMonth = useMemo(() => startOfMonth(new Date()), []);
@@ -582,25 +583,25 @@ export function CalendarScreen({
           </View>
 
           {/*
-            Deux boutons pour une seule place : « revenir à aujourd'hui »
-            n'existe que lorsqu'on s'en est éloigné, et l'emploi du temps
-            prend sa place le reste du temps.
+            L'emploi du temps est toujours à portée : ce bouton reste posé.
+            « Revenir à aujourd'hui » ne vient s'ajouter à côté que lorsqu'on
+            s'en est éloigné — jamais à sa place.
           */}
-          {isOnToday ? (
-            <Squish
-              style={[styles.iconBtn, { backgroundColor: `${ui.accent}1F` }]}
-              onPress={() => {
-                tapSoft();
-                // on rouvre toujours sur la semaine en cours, pas sur celle
-                // où les flèches nous avaient laissés la fois d'avant
-                setBoardWeek(null);
-                setBoardOpen(true);
-              }}
-              scaleTo={0.93}
-            >
-              <Ionicons name="grid" size={17} color={ui.accent} />
-            </Squish>
-          ) : (
+          <Squish
+            style={[styles.iconBtn, { backgroundColor: board.wash }]}
+            onPress={() => {
+              tapSoft();
+              // on rouvre toujours sur la semaine en cours, pas sur celle
+              // où les flèches nous avaient laissés la fois d'avant
+              setBoardWeek(null);
+              setBoardOpen(true);
+            }}
+            scaleTo={0.93}
+          >
+            <Ionicons name="grid" size={17} color={board.deep} />
+          </Squish>
+
+          {!isOnToday && (
             <Squish
               style={[styles.iconBtn, { backgroundColor: `${ui.accent}1F` }]}
               onPress={goToday}
