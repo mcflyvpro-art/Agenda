@@ -8,7 +8,7 @@ import { fromKey, hhmm, minutesNow, roundToQuarter, shortDay, todayKey } from '.
 import { tapLight, tapSoft } from '../lib/haptics';
 import { layoutDay } from '../lib/layout';
 import { isPagerGestureActive } from './Pager';
-import { HOUR_HEIGHT, useSettings } from '../store/settings';
+import { HOUR_HEIGHT, useSettings, type DayRange } from '../store/settings';
 import { theme } from '../theme';
 import type { AgendaEvent } from '../types';
 import { Squish } from './Squish';
@@ -22,19 +22,54 @@ type Props = {
   onCreateAt: (dateKey: string, minutes: number) => void;
   onOpen: (e: AgendaEvent) => void;
   onToggle: (id: string) => void;
+  /** déplier une grappe d'événements simultanés trop serrée pour la grille */
+  onShowOverlap: (events: AgendaEvent[]) => void;
   bottomInset?: number;
 };
 
-/** Bornes horaires affichées, élargies si un événement déborde. */
-function visibleRange(events: AgendaEvent[], mode: 'full' | 'active' | 'auto'): [number, number] {
-  const timed = events.filter((e) => !e.allDay);
+/** Journée creuse : on montre les heures où il se passe habituellement quelque chose. */
+const EMPTY_DAY: [number, number] = [8, 22];
+
+/**
+ * Bornes horaires de la grille.
+ *
+ * En automatique, la timeline se cale sur la journée : elle commence une
+ * heure avant le premier rendez-vous et finit une heure après le dernier —
+ * juste ce qu'il faut d'air autour. Sans rien au programme, elle retombe
+ * sur 8 h – 22 h plutôt que d'afficher une nuit entière vide. Sur mesure,
+ * ce sont les bornes choisies dans les réglages, quitte à ce qu'un
+ * événement déborde : on les élargit alors pour ne rien cacher.
+ */
+function visibleRange(
+  events: AgendaEvent[],
+  mode: DayRange,
+  custom: [number, number],
+  /** heure courante à garder dans le cadre quand on regarde aujourd'hui */
+  nowHour: number | null,
+): [number, number] {
   if (mode === 'full') return [0, 24];
-  const base: [number, number] = mode === 'active' ? [7, 23] : [8, 20];
-  if (timed.length === 0) return base;
+
+  const timed = events.filter((e) => !e.allDay);
+  /* la barre de l'heure courante doit rester dans la grille : sans ça elle
+     se dessine dans le vide, sous la dernière ligne */
+  const withNow = ([from, to]: [number, number]): [number, number] =>
+    nowHour === null
+      ? [from, to]
+      : [Math.max(0, Math.min(from, nowHour)), Math.min(24, Math.max(to, nowHour + 1))];
+
+  if (mode === 'custom') {
+    const [from, to] = custom;
+    if (timed.length === 0) return withNow([from, to]);
+    // un rendez-vous hors plage resterait invisible : on ouvre juste assez
+    const earliest = Math.floor(Math.min(...timed.map((e) => e.start)) / 60);
+    const latest = Math.ceil(Math.max(...timed.map((e) => e.end)) / 60);
+    return withNow([Math.max(0, Math.min(from, earliest)), Math.min(24, Math.max(to, latest))]);
+  }
+
+  if (timed.length === 0) return withNow(EMPTY_DAY);
   const earliest = Math.floor(Math.min(...timed.map((e) => e.start)) / 60);
   const latest = Math.ceil(Math.max(...timed.map((e) => e.end)) / 60);
-  if (mode === 'active') return [Math.min(base[0], earliest), Math.max(base[1], latest)];
-  return [Math.max(0, Math.min(earliest - 1, base[0])), Math.min(24, Math.max(latest + 1, base[1]))];
+  return withNow([Math.max(0, earliest - 1), Math.min(24, latest + 1)]);
 }
 
 export function DayTimeline({
@@ -43,6 +78,7 @@ export function DayTimeline({
   onCreateAt,
   onOpen,
   onToggle,
+  onShowOverlap,
   bottomInset = 0,
 }: Props) {
   const { settings, swatch, ui } = useSettings();
@@ -54,14 +90,19 @@ export function DayTimeline({
   const HOUR_H = HOUR_HEIGHT[settings.density];
   const multi = days.length > 1;
   const allEvents = useMemo(() => days.flatMap(eventsOn), [days, eventsOn]);
-  const [startHour, endHour] = visibleRange(allEvents, settings.dayRange);
+  const todayIndex = days.indexOf(todayKey());
+  const isToday = todayIndex >= 0;
+  const nowMin = minutesNow();
+  const [startHour, endHour] = visibleRange(
+    allEvents,
+    settings.dayRange,
+    [settings.dayStart, settings.dayEnd],
+    settings.showNowLine && isToday ? Math.floor(nowMin / 60) : null,
+  );
   const hours = useMemo(
     () => Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i),
     [startHour, endHour],
   );
-  const todayIndex = days.indexOf(todayKey());
-  const isToday = todayIndex >= 0;
-  const nowMin = minutesNow();
   const showNow = settings.showNowLine && isToday;
   const nowTop = ((nowMin - startHour * 60) / 60) * HOUR_H;
 
@@ -155,6 +196,13 @@ export function DayTimeline({
 
       {!multi && allDayFor(days[0]).length > 0 && (
         <View style={styles.allDayWrap}>
+          {/* ces événements n'ont pas d'heure : ils ne peuvent pas vivre dans
+              la grille, alors on les annonce clairement au-dessus */}
+          <View style={styles.allDayHead}>
+            <Ionicons name="sunny" size={13} color={ui.accent} />
+            <Text style={[styles.allDayHeadText, { color: ui.accent }]}>Toute la journée</Text>
+            <View style={styles.allDayRule} />
+          </View>
           {allDayFor(days[0]).map((e, i) => {
             const c = swatch(e.color);
             return (
@@ -177,7 +225,6 @@ export function DayTimeline({
                   >
                     {e.title}
                   </Text>
-                  <Ionicons name="sunny" size={14} color={c.deep} />
                 </Squish>
               </Animated.View>
             );
@@ -223,8 +270,73 @@ export function DayTimeline({
           <Pressable style={[styles.tapLayer, { left: GUTTER }]} onPress={handleTap} />
 
           {days.map((key, col) => {
-            const positioned = layoutDay(eventsOn(key));
-            return positioned.map(({ event, col: sub, cols }, i) => {
+            const { positioned, clusters } = layoutDay(eventsOn(key));
+
+            /*
+              Au-delà de deux colonnes, chaque carte tomberait sous la
+              soixantaine de pixels : plus rien ne se lit. On replie alors la
+              grappe entière en une seule carte, qui dit combien ils sont et
+              s'ouvre d'un tap sur la liste dépliée.
+            */
+            const folded = new Set(
+              clusters
+                .filter((cl) => {
+                  const width = colWidth / Math.min(cl.events.length, positioned
+                    .filter((p) => p.cluster === cl.id)
+                    .reduce((m, p) => Math.max(m, p.cols), 1));
+                  return width < 104;
+                })
+                .map((cl) => cl.id),
+            );
+
+            const stacks = clusters
+              .filter((cl) => folded.has(cl.id))
+              .map((cl) => {
+                const top = ((cl.start - startHour * 60) / 60) * HOUR_H;
+                const height = Math.max(46, ((cl.end - cl.start) / 60) * HOUR_H - 4);
+                return (
+                  <Animated.View
+                    key={`stack-${key}-${cl.id}`}
+                    entering={FadeInDown.duration(DUR.quick)}
+                    style={[
+                      styles.eventWrap,
+                      { top, left: GUTTER + col * colWidth, width: colWidth - (multi ? 3 : 6), height },
+                    ]}
+                  >
+                    <Squish
+                      style={styles.stack}
+                      onPress={() => {
+                        tapSoft();
+                        onShowOverlap(cl.events);
+                      }}
+                    >
+                      <View style={styles.stackBars}>
+                        {cl.events.slice(0, 4).map((e) => (
+                          <View
+                            key={e.id}
+                            style={[styles.stackBar, { backgroundColor: swatch(e.color).solid }]}
+                          />
+                        ))}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text numberOfLines={1} style={styles.stackTitle}>
+                          {cl.events.length} en même temps
+                        </Text>
+                        <Text style={styles.stackTime}>
+                          {hhmm(cl.start)} – {hhmm(cl.end)}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={15} color={theme.inkSoft} />
+                    </Squish>
+                  </Animated.View>
+                );
+              });
+
+            return [
+              ...stacks,
+              ...positioned
+                .filter((p) => !folded.has(p.cluster))
+                .map(({ event, col: sub, cols }, i) => {
               const c = swatch(event.color);
               const top = ((event.start - startHour * 60) / 60) * HOUR_H;
               const rawH = ((Math.max(event.end, event.start + 20) - event.start) / 60) * HOUR_H;
@@ -290,8 +402,9 @@ export function DayTimeline({
                     </View>
                   </Squish>
                 </Animated.View>
-              );
-            });
+                );
+              }),
+            ];
           })}
 
           {showNow && (
@@ -337,7 +450,15 @@ const styles = StyleSheet.create({
   colDay: { fontSize: 10.5, fontWeight: '700', color: theme.inkFaint, letterSpacing: 0.3 },
   colNum: { fontSize: 15, fontWeight: '800', color: theme.ink, letterSpacing: -0.3 },
   colSep: { position: 'absolute', top: 0, width: 1, backgroundColor: theme.hairline },
-  allDayWrap: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
+  allDayWrap: { paddingHorizontal: 16, paddingBottom: 10, gap: 8 },
+  allDayHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 2 },
+  allDayHeadText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  allDayRule: { flex: 1, height: 1, backgroundColor: theme.hairline, marginLeft: 2 },
   allDayChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -368,6 +489,29 @@ const styles = StyleSheet.create({
   hourLine: { flex: 1, height: 1, backgroundColor: theme.hairline, marginRight: 14 },
   tapLayer: { position: 'absolute', top: 0, right: 14, bottom: 0 },
   eventWrap: { position: 'absolute' },
+  stack: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: theme.radius.md,
+    backgroundColor: '#FFFFFF',
+    paddingLeft: 10,
+    paddingRight: 10,
+    borderWidth: 1,
+    borderColor: theme.hairlineStrong,
+    overflow: 'hidden',
+  },
+  stackBars: { flexDirection: 'row', gap: 2.5 },
+  stackBar: { width: 3.5, height: 22, borderRadius: 2 },
+  stackTitle: { fontSize: 13.5, fontWeight: '800', color: theme.ink, letterSpacing: -0.25 },
+  stackTime: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: theme.inkSoft,
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
   event: {
     flex: 1,
     flexDirection: 'row',

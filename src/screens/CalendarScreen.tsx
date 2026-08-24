@@ -12,6 +12,7 @@ import { EmptyDay } from '../components/EmptyDay';
 import { EventCard } from '../components/EventCard';
 import { MonthGrid } from '../components/MonthGrid';
 import { NavSwipe } from '../components/NavSwipe';
+import { OverlapSheet } from '../components/OverlapSheet';
 import { Pager } from '../components/Pager';
 import { PlannerList } from '../components/PlannerList';
 import { SegmentedRow } from '../components/SegmentedRow';
@@ -101,6 +102,8 @@ export function CalendarScreen({
   const [yearIndex, setYearIndex] = useState(YEAR_SPAN);
   const [bodyHeight, setBodyHeight] = useState(0);
   const [dayHeight, setDayHeight] = useState(0);
+  /** la grappe d'événements simultanés qu'on est en train de déplier */
+  const [overlap, setOverlap] = useState<AgendaEvent[] | null>(null);
 
   // « masquer ce qui est fait » se règle ici, une fois pour toutes les vues
   const visibleByDay = useMemo(() => {
@@ -308,6 +311,7 @@ export function CalendarScreen({
         days={[key]}
         eventsOn={visibleOn}
         onCreateAt={createAt}
+        onShowOverlap={setOverlap}
         {...common}
       />
     );
@@ -358,6 +362,7 @@ export function CalendarScreen({
                     onCreateAt={createAt}
                     onOpen={openEvent}
                     onToggle={toggleDone}
+                    onShowOverlap={setOverlap}
                     bottomInset={bottomInset}
                   />
                 );
@@ -401,6 +406,7 @@ export function CalendarScreen({
                   onCreateAt={createAt}
                   onOpen={openEvent}
                   onToggle={toggleDone}
+                  onShowOverlap={setOverlap}
                   bottomInset={bottomInset}
                 />
               );
@@ -588,6 +594,7 @@ export function CalendarScreen({
         </Animated.View>
       </View>
 
+      <OverlapSheet events={overlap} onClose={() => setOverlap(null)} onOpen={openEvent} />
     </View>
   );
 }
