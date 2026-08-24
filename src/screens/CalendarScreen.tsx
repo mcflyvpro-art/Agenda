@@ -4,12 +4,14 @@ import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { DUR } from '../lib/motion';
+import { SCROLL_IN_PAGER } from '../lib/gestures';
 import { DayRail } from '../components/DayRail';
 import { DaySheet } from '../components/DaySheet';
 import { DayTimeline } from '../components/DayTimeline';
 import { EmptyDay } from '../components/EmptyDay';
 import { EventCard } from '../components/EventCard';
 import { MonthGrid } from '../components/MonthGrid';
+import { NavSwipe } from '../components/NavSwipe';
 import { Pager } from '../components/Pager';
 import { PlannerList } from '../components/PlannerList';
 import { SegmentedRow } from '../components/SegmentedRow';
@@ -179,6 +181,36 @@ export function CalendarScreen({
     [update],
   );
 
+  /**
+   * Reculer ou avancer d'un cran, dans l'unité de la vue courante.
+   * C'est ce que déclenche le balayage du bandeau du haut — le geste qui
+   * marche partout, y compris là où le corps de l'écran appartient aux
+   * cartes. La vue Liste défile en continu : il n'y a rien à paginer.
+   */
+  const step = useCallback(
+    (delta: number) => {
+      const d = delta < 0 ? -1 : 1;
+      tapSoft();
+      switch (scale) {
+        case 'year':
+          setYearIndex((i) => Math.max(0, Math.min(YEAR_COUNT - 1, i + d)));
+          break;
+        case 'month':
+          setMonthIndex((i) => Math.max(0, Math.min(MONTH_COUNT - 1, i + d)));
+          break;
+        case 'week':
+          selectDay(toKey(addDays(fromKey(selectedKey), d * (settings.weekLayout === 'grid3' ? 3 : 7))));
+          break;
+        case 'day':
+          selectDay(toKey(addDays(fromKey(selectedKey), d)));
+          break;
+        default:
+          break;
+      }
+    },
+    [scale, settings.weekLayout, selectedKey, selectDay],
+  );
+
   const createAt = onCreateAt;
   const openEvent = onOpenEvent;
 
@@ -247,6 +279,7 @@ export function CalendarScreen({
       return (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          style={SCROLL_IN_PAGER}
           contentContainerStyle={{
             paddingHorizontal: 18,
             paddingTop: 6,
@@ -291,7 +324,7 @@ export function CalendarScreen({
             pageHeight={bodyHeight}
             onIndexChange={setYearIndex}
             renderPage={(i) => (
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} style={SCROLL_IN_PAGER}>
                 <YearGrid
                   year={anchorYear + (i - YEAR_SPAN)}
                   byDay={visibleByDay}
@@ -332,19 +365,23 @@ export function CalendarScreen({
             />
           );
         }
-        return (
+        const isList = settings.weekLayout === 'list';
+        const pager = (h: number) => (
           <Pager
             count={WEEK_COUNT}
             index={weekIndex}
             width={width}
-            pageHeight={bodyHeight}
+            pageHeight={h}
+            // en Liste, les cartes remplissent l'écran : le glissement leur
+            // revient, on navigue par la bande des jours au-dessus
+            swipeable={!isList}
             onIndexChange={(i) =>
               selectDay(toKey(addDays(weekStartForIndex(i), weekdayOffset)))
             }
             renderPage={(i) => {
               const first = weekStartForIndex(i);
               const days = Array.from({ length: 7 }, (_, k) => toKey(addDays(first, k)));
-              if (settings.weekLayout === 'list') {
+              if (isList) {
                 return (
                   <PlannerList
                     days={days}
@@ -370,17 +407,38 @@ export function CalendarScreen({
             }}
           />
         );
+
+        if (!isList) return pager(bodyHeight);
+
+        // la bande des jours devient le gouvernail de la vue en liste
+        return (
+          <>
+            <NavSwipe onStep={step}>
+              <WeekStrip
+                selectedKey={selectedKey}
+                byDay={visibleByDay}
+                onSelect={selectDay}
+                onLongSelect={(key: string) => onCreateAt(key)}
+              />
+            </NavSwipe>
+            <View style={styles.flex} onLayout={(e) => setDayHeight(e.nativeEvent.layout.height)}>
+              {dayHeight > 0 && pager(dayHeight)}
+            </View>
+          </>
+        );
       }
 
       case 'day':
         return (
           <>
+            <NavSwipe onStep={step}>
               <WeekStrip
-              selectedKey={selectedKey}
-              byDay={visibleByDay}
-              onSelect={selectDay}
-              onLongSelect={(key: string) => onCreateAt(key)}
-            />
+                selectedKey={selectedKey}
+                byDay={visibleByDay}
+                onSelect={selectDay}
+                onLongSelect={(key: string) => onCreateAt(key)}
+              />
+            </NavSwipe>
             <View
               style={styles.flex}
               onLayout={(e) => setDayHeight(e.nativeEvent.layout.height)}
@@ -393,6 +451,9 @@ export function CalendarScreen({
                   width={width}
                   pageHeight={dayHeight}
                   style={styles.flex}
+                  // en Liste, les cartes remplissent l'écran : le glissement
+                  // leur revient, on navigue par la bande des jours au-dessus
+                  swipeable={settings.dayLayout !== 'list'}
                   onIndexChange={(i) => selectDay(toKey(dayForIndex(i)))}
                   renderPage={(i) => dayPage(toKey(dayForIndex(i)))}
                 />
@@ -471,7 +532,12 @@ export function CalendarScreen({
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-        <View style={styles.headerTop}>
+        {/*
+          Le titre est une zone de navigation à part entière : on y balaye
+          pour reculer ou avancer d'un cran, quelle que soit la vue. C'est le
+          geste de secours quand le corps de l'écran appartient aux cartes.
+        */}
+        <NavSwipe onStep={step} enabled={scale !== 'list'} style={styles.headerTop}>
           <View style={{ flex: 1 }}>
             <Text style={styles.title} numberOfLines={1}>
               {title}
@@ -505,7 +571,7 @@ export function CalendarScreen({
           >
             <Ionicons name="options-outline" size={19} color={theme.inkSoft} />
           </Squish>
-        </View>
+        </NavSwipe>
 
         <View style={styles.scaleBar}>
           <SegmentedRow value={scale} onChange={setScale} options={SCALES} size="lg" />

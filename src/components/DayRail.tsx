@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { DUR, stagger } from '../lib/motion';
+import { SCROLL_IN_PAGER } from '../lib/gestures';
 import { durationLabel, hhmm, minutesNow, todayKey } from '../lib/date';
 import { tapLight, tapSoft } from '../lib/haptics';
 import { useSettings } from '../store/settings';
@@ -55,6 +56,7 @@ export function DayRail({ dateKey, events, onCreateAt, onOpen, onToggle, bottomI
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
+      style={SCROLL_IN_PAGER}
       contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: bottomInset + 130, paddingTop: 6 }}
     >
       {allDay.map((e, i) => {

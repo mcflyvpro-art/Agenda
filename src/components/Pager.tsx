@@ -18,6 +18,12 @@ type Props = {
   renderPage: (i: number) => React.ReactNode;
   /** hauteur imposée aux pages (nécessaire quand la page contient un scroll vertical) */
   pageHeight?: number;
+  /**
+   * Balayage horizontal sur le corps de la page. À couper dans les vues en
+   * liste, où les cartes occupent tout l'écran et où le glissement leur
+   * appartient (valider / supprimer) : on y navigue par le bandeau du haut.
+   */
+  swipeable?: boolean;
   style?: any;
 };
 
@@ -49,7 +55,16 @@ export function isPagerGestureActive() {
  * le glissement est borné à une largeur de page, et chaque geste ne peut
  * jamais faire avancer ou reculer que d'un seul cran.
  */
-export function Pager({ count, index, width, onIndexChange, renderPage, pageHeight, style }: Props) {
+export function Pager({
+  count,
+  index,
+  width,
+  onIndexChange,
+  renderPage,
+  pageHeight,
+  swipeable = true,
+  style,
+}: Props) {
   const dragX = useSharedValue(0);
   const startX = useSharedValue(0);
   const busy = useSharedValue(false);
@@ -63,7 +78,7 @@ export function Pager({ count, index, width, onIndexChange, renderPage, pageHeig
   const hasNext = index < count - 1;
 
   const pan = Gesture.Pan()
-    .enabled(count > 1)
+    .enabled(swipeable && count > 1)
     .activeOffsetX([-10, 10])
     .failOffsetY([-16, 16])
     .onStart(() => {

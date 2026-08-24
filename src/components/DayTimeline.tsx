@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { DUR, stagger } from '../lib/motion';
+import { SCROLL_IN_PAGER } from '../lib/gestures';
 import { fromKey, hhmm, minutesNow, roundToQuarter, shortDay, todayKey } from '../lib/date';
 import { tapLight, tapSoft } from '../lib/haptics';
 import { layoutDay } from '../lib/layout';
@@ -187,6 +188,7 @@ export function DayTimeline({
       <ScrollView
         ref={scroller}
         showsVerticalScrollIndicator={false}
+        style={SCROLL_IN_PAGER}
         contentContainerStyle={{ paddingBottom: bottomInset + 130, paddingTop: 14 }}
         onContentSizeChange={jumpToAnchor}
         onLayout={jumpToAnchor}
