@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useMemo } from 'react';
-import { Modal, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { dayMonth, fromKey, getISOWeek, hhmm, shortDay, todayKey } from '../lib/date';
 import { tapLight, tapSoft } from '../lib/haptics';
 import { layoutDay } from '../lib/layout';
@@ -37,15 +37,41 @@ const EMPTY: [number, number] = [8, 20];
  * Rien ne défile : les heures sont comprimées pour que la semaine entière
  * tienne d'un seul tenant, sans quoi « voir toute la semaine » n'aurait
  * plus de sens.
+ *
+ * La rotation physique du téléphone n'est jamais écoutée pendant que la
+ * feuille est ouverte : les dimensions sont figées une seule fois, à
+ * l'ouverture. Un navigateur mobile ne verrouille pas fiablement
+ * l'orientation (l'API existe sur Android, pas sur Safari iOS), donc
+ * laisser le composant réagir en direct au vrai pivot du téléphone le
+ * faisait recalculer sa mise en page en plein mouvement — l'origine du
+ * bug. Ici, tourner l'appareil ne change plus rien : c'est uniquement le
+ * dessin, déjà couché, qui donne l'impression du paysage.
  */
 export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: Props) {
   const { settings, swatch, ui } = useSettings();
-  const { width: winW, height: winH } = useWindowDimensions();
+
+  const [frame, setFrame] = useState(() => Dimensions.get('window'));
+  useEffect(() => {
+    if (visible) setFrame(Dimensions.get('window'));
+  }, [visible]);
+  const winW = frame.width;
+  const winH = frame.height;
 
   // le cadre couché : on échange les deux dimensions de l'écran
   const portrait = winH >= winW;
   const W = portrait ? winH : winW;
   const H = portrait ? winW : winH;
+
+  /** l'événement dont on a demandé le détail, dans un petit volet flottant */
+  const [selected, setSelected] = useState<AgendaEvent | null>(null);
+  useEffect(() => {
+    if (!visible) setSelected(null);
+  }, [visible]);
+  // changer de semaine invalide la sélection : l'événement affiché n'est plus sous les yeux
+  useEffect(() => {
+    setSelected(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days.join('|')]);
 
   const all = useMemo(() => days.flatMap(eventsOn), [days, eventsOn]);
 
@@ -143,8 +169,14 @@ export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: 
                 const h = Math.max(16, ((event.end - event.start) / 60) * hourH - 2);
                 const w = (colW - 6) / cols;
                 return (
-                  <View
+                  <Squish
                     key={event.id}
+                    scaleTo={0.95}
+                    dimTo={1}
+                    onPress={() => {
+                      tapLight();
+                      setSelected(event);
+                    }}
                     style={[
                       styles.event,
                       {
@@ -174,11 +206,53 @@ export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: 
                         <Text style={styles.eventGlyph}>{event.emoji}</Text>
                       )}
                     </View>
-                  </View>
+                  </Squish>
                 );
               });
             })}
           </View>
+
+          {/*
+            Le détail d'un événement, en petit : la grille est trop tassée
+            en paysage pour tout y écrire, alors un tap ouvre juste ce qu'il
+            manque — le titre en entier et les horaires — dans un volet qui
+            flotte sans rien recouvrir d'autre. Un tap n'importe où ailleurs
+            le referme.
+          */}
+          {selected && (
+            <>
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={() => setSelected(null)}
+              />
+              <View pointerEvents="box-none" style={styles.popupLayer}>
+                <View style={[styles.popup, { backgroundColor: swatch(selected.color).wash }]}>
+                  <View style={[styles.popupBar, { backgroundColor: swatch(selected.color).solid }]} />
+                  {settings.showEmoji && <Text style={styles.popupEmoji}>{selected.emoji}</Text>}
+                  <View style={styles.popupText}>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.popupTitle, { color: swatch(selected.color).deep }]}
+                    >
+                      {selected.title}
+                    </Text>
+                    <Text style={[styles.popupTime, { color: swatch(selected.color).deep }]}>
+                      {selected.allDay
+                        ? 'Toute la journée'
+                        : `${hhmm(selected.start)} – ${hhmm(selected.end)}`}
+                    </Text>
+                  </View>
+                  <Squish
+                    style={styles.popupClose}
+                    scaleTo={0.88}
+                    onPress={() => setSelected(null)}
+                  >
+                    <Ionicons name="close" size={14} color={swatch(selected.color).deep} />
+                  </Squish>
+                </View>
+              </View>
+            </>
+          )}
         </View>
       </View>
     </Modal>
@@ -256,4 +330,42 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   eventGlyph: { fontSize: 11, textAlign: 'center' },
+  popupLayer: {
+    position: 'absolute',
+    top: HEADER + 10,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  popup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: '78%',
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingLeft: 12,
+    paddingRight: 8,
+    overflow: 'hidden',
+    ...theme.shadow.lift,
+  },
+  popupBar: { position: 'absolute', left: 0, top: 6, bottom: 6, width: 3, borderRadius: 2 },
+  popupEmoji: { fontSize: 15 },
+  popupText: { flexShrink: 1 },
+  popupTitle: { fontSize: 13, fontWeight: '800', letterSpacing: -0.2 },
+  popupTime: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+    opacity: 0.85,
+    fontVariant: ['tabular-nums'],
+  },
+  popupClose: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
 });
