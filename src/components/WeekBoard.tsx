@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { dayMonth, fromKey, getISOWeek, hhmm, shortDay, todayKey } from '../lib/date';
-import { tapLight, tapSoft } from '../lib/haptics';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { fromKey, hhmm, shortDay, todayKey } from '../lib/date';
+import { tapLight, tapMedium, tapSoft } from '../lib/haptics';
 import { layoutDay } from '../lib/layout';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
@@ -20,42 +20,47 @@ type Props = {
 };
 
 const GUTTER = 46;
-const HEADER = 44;
+const DAY_HEAD = 34;
 /** repli quand la semaine est vide : les heures où il se passe des choses */
 const EMPTY: [number, number] = [8, 20];
 
+/** un tap ne doit presque pas bouger ; au-delà, c'est un balayage */
+const TAP_SLOP = 12;
+/** trois taps qui ne tiennent pas dans cette fenêtre ne comptent pas comme un triple tap */
+const TRIPLE_TAP_WINDOW = 550;
+/** distance à partir de laquelle un balayage change de semaine */
+const SWIPE_DIST = 46;
+/** ou, plus court mais assez vif (en pixels par milliseconde) */
+const SWIPE_VELOCITY = 0.5;
+
 /**
- * La semaine en grand, à plat.
+ * La semaine en grand, à plat, plein écran.
  *
  * Un emploi du temps se lit d'un bloc — sept colonnes de front — et un
  * téléphone tenu debout n'en a pas la largeur. Cette vue fait donc pivoter
- * son contenu d'un quart de tour : on tourne l'appareil, et la grille
- * occupe tout l'écran, dans le bon sens. C'est un choix délibéré plutôt
- * qu'une rotation demandée au système : iOS ne la donne pas à une page
- * web, et une app installée en mode portrait ne pivotera jamais.
+ * son contenu d'un quart de tour : on tient le téléphone en portrait, et
+ * le dessin est déjà couché, dans le bon sens pour qui le regarderait de
+ * côté. Rien ne défile : les heures se compriment pour que la semaine
+ * entière tienne d'un coup.
  *
- * Rien ne défile : les heures sont comprimées pour que la semaine entière
- * tienne d'un seul tenant, sans quoi « voir toute la semaine » n'aurait
- * plus de sens.
+ * Aucune barre, aucune flèche : on change de semaine par balayage, on
+ * quitte par un triple tap. Deux gestes qui vivent entièrement en dehors
+ * de React Native — de simples écouteurs DOM — pour ne jamais se
+ * disputer le toucher avec les cartes d'événements ni avec quoi que ce
+ * soit d'autre à l'écran ; ils se contentent d'observer, jamais de
+ * capturer.
  *
- * La rotation physique du téléphone n'est jamais écoutée pendant que la
- * feuille est ouverte : les dimensions sont figées une seule fois, à
- * l'ouverture. Un navigateur mobile ne verrouille pas fiablement
- * l'orientation (l'API existe sur Android, pas sur Safari iOS), donc
- * laisser le composant réagir en direct au vrai pivot du téléphone le
- * faisait recalculer sa mise en page en plein mouvement — l'origine du
- * bug. Ici, tourner l'appareil ne change plus rien : c'est uniquement le
- * dessin, déjà couché, qui donne l'impression du paysage.
+ * Sur la rotation : impossible de la verrouiller. Safari sur iPhone ne
+ * donne à une page web aucun moyen de bloquer l'orientation — cette API
+ * n'existe que sur Chrome/Android, et seulement pour une app installée.
+ * Ce qui est garanti ici, c'est que la mise en page suit toujours la
+ * taille réelle de l'écran, sans jamais rester figée sur une valeur
+ * périmée : si le téléphone tourne pour de vrai pendant que ce volet est
+ * ouvert, l'affichage s'y adapte proprement plutôt que de se déchirer.
  */
 export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: Props) {
   const { settings, swatch, ui } = useSettings();
-
-  const [frame, setFrame] = useState(() => Dimensions.get('window'));
-  useEffect(() => {
-    if (visible) setFrame(Dimensions.get('window'));
-  }, [visible]);
-  const winW = frame.width;
-  const winH = frame.height;
+  const { width: winW, height: winH } = useWindowDimensions();
 
   // le cadre couché : on échange les deux dimensions de l'écran
   const portrait = winH >= winW;
@@ -73,6 +78,78 @@ export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days.join('|')]);
 
+  /*
+    Balayer pour changer de semaine, taper trois fois vite pour sortir —
+    tous deux en dehors de React Native, via de simples écouteurs sur le
+    document. Une carte d'événement (un Pressable ordinaire) et ce volet
+    partagent alors deux systèmes de toucher différents ; les mêler dans
+    le système de gestes de React Native avait déjà, ailleurs dans l'app,
+    bloqué net des taps qui n'avaient rien à voir. Un écouteur qui ne fait
+    qu'observer, sans jamais intercepter, ne peut pas reproduire ce bug.
+  */
+  const onPrevRef = useRef(onPrev);
+  const onNextRef = useRef(onNext);
+  const onCloseRef = useRef(onClose);
+  onPrevRef.current = onPrev;
+  onNextRef.current = onNext;
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'web') return;
+
+    let start: { x: number; y: number; t: number } | null = null;
+    let taps: number[] = [];
+
+    const onDown = (e: PointerEvent) => {
+      start = { x: e.clientX, y: e.clientY, t: Date.now() };
+    };
+
+    const onUp = (e: PointerEvent) => {
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      const dt = Date.now() - start.t;
+      start = null;
+
+      if (Math.abs(dx) < TAP_SLOP && Math.abs(dy) < TAP_SLOP) {
+        // c'est un tap : on le compte pour le triple tap de sortie
+        const now = Date.now();
+        taps.push(now);
+        taps = taps.filter((t) => now - t <= TRIPLE_TAP_WINDOW);
+        if (taps.length >= 3) {
+          taps = [];
+          tapMedium();
+          onCloseRef.current();
+        }
+        return;
+      }
+
+      /*
+        La direction pertinente dépend de la présentation : couché en
+        portrait, le dessin est pré-tourné d'un quart de tour, donc « à
+        droite / à gauche » à l'écran (visuellement) correspond à « en bas
+        / en haut » sur l'écran réel — c'est exactement la conversion que
+        décrit le pivot appliqué plus bas au rendu.
+      */
+      const delta = portrait ? dy : dx;
+      const fast = dt > 0 && Math.abs(delta) / dt > SWIPE_VELOCITY;
+      if (delta < 0 && (Math.abs(delta) > SWIPE_DIST || fast)) {
+        tapSoft();
+        onNextRef.current();
+      } else if (delta > 0 && (delta > SWIPE_DIST || fast)) {
+        tapSoft();
+        onPrevRef.current();
+      }
+    };
+
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('pointerup', onUp, true);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('pointerup', onUp, true);
+    };
+  }, [visible, portrait]);
+
   const all = useMemo(() => days.flatMap(eventsOn), [days, eventsOn]);
 
   const [startHour, endHour] = useMemo(() => {
@@ -84,16 +161,19 @@ export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: 
   }, [all]);
 
   const hours = endHour - startHour;
-  const gridW = W - GUTTER - 20;
+  const gridW = W - GUTTER - 14;
   const colW = gridW / 7;
-  const gridH = H - HEADER - 36;
+  const gridH = H - DAY_HEAD - 20;
   const hourH = gridH / Math.max(1, hours);
 
-  const first = days.length ? fromKey(days[0]) : new Date();
-  const last = days.length ? fromKey(days[6]) : new Date();
-
   return (
-    <Modal visible={visible} transparent={false} animationType="none" onRequestClose={onClose} supportedOrientations={['portrait', 'landscape']}>
+    <Modal
+      visible={visible}
+      transparent={false}
+      animationType="none"
+      onRequestClose={() => onCloseRef.current()}
+      supportedOrientations={['portrait', 'landscape']}
+    >
       <View style={styles.stage}>
         <View
           style={[
@@ -111,31 +191,6 @@ export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: 
             portrait ? { transform: [{ rotate: '90deg' }] } : null,
           ]}
         >
-          <View style={styles.head}>
-            <Squish style={styles.navBtn} scaleTo={0.9} onPress={() => { tapLight(); onPrev(); }}>
-              <Ionicons name="chevron-back" size={20} color={theme.ink} />
-            </Squish>
-
-            <View style={styles.headText}>
-              <Text style={styles.title}>Semaine {getISOWeek(first)}</Text>
-              <Text style={styles.range}>
-                {dayMonth(first)} – {dayMonth(last)}
-              </Text>
-            </View>
-
-            <Squish style={styles.navBtn} scaleTo={0.9} onPress={() => { tapLight(); onNext(); }}>
-              <Ionicons name="chevron-forward" size={20} color={theme.ink} />
-            </Squish>
-
-            <Squish
-              style={[styles.close, { backgroundColor: `${ui.accent}18` }]}
-              scaleTo={0.9}
-              onPress={() => { tapSoft(); onClose(); }}
-            >
-              <Ionicons name="close" size={19} color={ui.accent} />
-            </Squish>
-          </View>
-
           <View style={styles.grid}>
             {/* colonne des heures */}
             {Array.from({ length: hours + 1 }, (_, i) => startHour + i).map((h, i) => (
@@ -180,7 +235,7 @@ export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: 
                     style={[
                       styles.event,
                       {
-                        top: top + HEADER,
+                        top: top + DAY_HEAD,
                         left: GUTTER + col * colW + 3 + sub * w,
                         width: w - 2,
                         height: h,
@@ -221,10 +276,7 @@ export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: 
           */}
           {selected && (
             <>
-              <Pressable
-                style={StyleSheet.absoluteFill}
-                onPress={() => setSelected(null)}
-              />
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelected(null)} />
               <View pointerEvents="box-none" style={styles.popupLayer}>
                 <View style={[styles.popup, { backgroundColor: swatch(selected.color).wash }]}>
                   <View style={[styles.popupBar, { backgroundColor: swatch(selected.color).solid }]} />
@@ -242,11 +294,7 @@ export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: 
                         : `${hhmm(selected.start)} – ${hhmm(selected.end)}`}
                     </Text>
                   </View>
-                  <Squish
-                    style={styles.popupClose}
-                    scaleTo={0.88}
-                    onPress={() => setSelected(null)}
-                  >
+                  <Squish style={styles.popupClose} scaleTo={0.88} onPress={() => setSelected(null)}>
                     <Ionicons name="close" size={14} color={swatch(selected.color).deep} />
                   </Squish>
                 </View>
@@ -261,33 +309,14 @@ export function WeekBoard({ visible, days, eventsOn, onPrev, onNext, onClose }: 
 
 const styles = StyleSheet.create({
   stage: { flex: 1, backgroundColor: '#FBF6F4', overflow: 'hidden' },
-  board: { position: "absolute", paddingHorizontal: 10, paddingBottom: 8 },
-  head: {
-    height: HEADER,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 4,
-  },
-  headText: { flex: 1, alignItems: 'center' },
-  title: { fontSize: 15, fontWeight: '800', color: theme.ink, letterSpacing: -0.3 },
-  range: { fontSize: 11, fontWeight: '600', color: theme.inkFaint, marginTop: 1 },
-  navBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(32,32,43,0.05)',
-  },
-  close: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  board: { position: 'absolute', backgroundColor: '#FBF6F4', paddingHorizontal: 8, paddingVertical: 6 },
   grid: { flex: 1 },
   hourRow: {
     position: 'absolute',
     left: 0,
     right: 0,
     height: 14,
-    marginTop: HEADER - 7,
+    marginTop: DAY_HEAD - 7,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -303,7 +332,7 @@ const styles = StyleSheet.create({
   hourLine: { flex: 1, height: 1, backgroundColor: theme.hairline },
   col: { position: 'absolute', top: 0, bottom: 0 },
   dayHead: {
-    height: HEADER - 10,
+    height: DAY_HEAD - 6,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
@@ -317,7 +346,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   dayNum: { fontSize: 14, fontWeight: '800', color: theme.ink, letterSpacing: -0.3 },
-  colSep: { position: 'absolute', left: 0, top: HEADER - 8, bottom: 0, width: 1, backgroundColor: theme.hairline },
+  colSep: { position: 'absolute', left: 0, top: DAY_HEAD - 4, bottom: 0, width: 1, backgroundColor: theme.hairline },
   event: { position: 'absolute', borderRadius: 7, overflow: 'hidden', paddingLeft: 7, paddingRight: 4 },
   eventBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
   eventBody: { flex: 1, justifyContent: 'center' },
@@ -332,7 +361,7 @@ const styles = StyleSheet.create({
   eventGlyph: { fontSize: 11, textAlign: 'center' },
   popupLayer: {
     position: 'absolute',
-    top: HEADER + 10,
+    top: DAY_HEAD + 14,
     left: 0,
     right: 0,
     alignItems: 'center',
