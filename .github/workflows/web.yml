@@ -30,7 +30,9 @@ jobs:
       - name: Export web
         env:
           EXPO_BASE_URL: /${{ github.event.repository.name }}
-        run: npx expo export --platform web --output-dir dist
+        run: |
+          npx expo export --platform web --output-dir dist
+          node scripts/finish-web.mjs
       - name: Éviter le traitement Jekyll
         run: touch dist/.nojekyll
       - uses: actions/upload-pages-artifact@v3
