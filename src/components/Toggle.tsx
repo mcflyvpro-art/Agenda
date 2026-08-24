@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { DUR, SPRING } from '../lib/motion';
 import { tapSoft } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 
@@ -10,10 +11,10 @@ export function Toggle({ value, onChange, color }: Props) {
   const { ui } = useSettings();
   const on = color ?? ui.accent;
   const track = useAnimatedStyle(() => ({
-    backgroundColor: withTiming(value ? on : 'rgba(32,32,43,0.12)', { duration: 180 }),
+    backgroundColor: withTiming(value ? on : 'rgba(32,32,43,0.12)', { duration: DUR.quick }),
   }));
   const knob = useAnimatedStyle(() => ({
-    transform: [{ translateX: withSpring(value ? 20 : 0, { damping: 18, stiffness: 260 }) }],
+    transform: [{ translateX: withSpring(value ? 20 : 0, SPRING.press) }],
   }));
 
   return (

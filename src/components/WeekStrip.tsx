@@ -32,7 +32,7 @@ export function WeekStrip({ selectedKey, byDay, onSelect, onLongSelect }: Props)
           <Squish
             key={key}
             style={styles.item}
-            scaleTo={0.9}
+            scaleTo={0.94}
             dimTo={1}
             onPress={() => {
               tapLight();
@@ -55,7 +55,7 @@ export function WeekStrip({ selectedKey, byDay, onSelect, onLongSelect }: Props)
               {selected && (
                 <Animated.View
                   key={key}
-                  entering={ZoomIn.springify().damping(13).stiffness(220)}
+                  entering={ZoomIn.springify().damping(22).stiffness(340).mass(0.5)}
                   style={[
                     styles.bubble,
                     { backgroundColor: isToday ? ui.today : theme.ink },

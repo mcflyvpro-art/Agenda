@@ -20,6 +20,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { DUR, EASE_OUT, SPRING } from '../lib/motion';
 import { notifySuccess, notifyWarn, tapSoft } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
@@ -52,8 +53,8 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
       setD(draft);
       ty.value = height;
       backdrop.value = 0;
-      ty.value = withSpring(0, { damping: 24, stiffness: 220, mass: 0.9 });
-      backdrop.value = withTiming(1, { duration: 240 });
+      ty.value = withSpring(0, SPRING.panel);
+      backdrop.value = withTiming(1, { duration: DUR.quick });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, draft]);
@@ -61,8 +62,8 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
   const finish = () => onClose();
 
   const dismiss = () => {
-    backdrop.value = withTiming(0, { duration: 180 });
-    ty.value = withTiming(height, { duration: 220 }, (done) => {
+    backdrop.value = withTiming(0, { duration: DUR.instant });
+    ty.value = withTiming(height, { duration: DUR.smooth, easing: EASE_OUT }, (done) => {
       if (done) runOnJS(finish)();
     });
   };
@@ -73,12 +74,12 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
     })
     .onEnd((e) => {
       if (e.translationY > 130 || e.velocityY > 900) {
-        backdrop.value = withTiming(0, { duration: 180 });
-        ty.value = withTiming(height, { duration: 200 }, (done) => {
+        backdrop.value = withTiming(0, { duration: DUR.instant });
+        ty.value = withTiming(height, { duration: DUR.smooth, easing: EASE_OUT }, (done) => {
           if (done) runOnJS(finish)();
         });
       } else {
-        ty.value = withSpring(0, { damping: 22, stiffness: 240 });
+        ty.value = withSpring(0, SPRING.settle);
       }
     });
 
@@ -120,7 +121,7 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
             </GestureDetector>
 
             <View style={styles.topBar}>
-              <Squish onPress={dismiss} style={styles.roundBtn} scaleTo={0.88}>
+              <Squish onPress={dismiss} style={styles.roundBtn} scaleTo={0.93}>
                 <Ionicons name="close" size={19} color={theme.inkSoft} />
               </Squish>
               <Squish
@@ -131,7 +132,7 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
                   dismiss();
                 }}
                 style={[styles.roundBtn, { backgroundColor: ui.accent }]}
-                scaleTo={0.88}
+                scaleTo={0.93}
               >
                 <Ionicons name="checkmark" size={20} color="#FFFFFF" />
               </Squish>

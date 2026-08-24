@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { DUR, stagger } from '../lib/motion';
 import { fromKey, hhmm, minutesNow, roundToQuarter, shortDay, todayKey } from '../lib/date';
 import { tapLight, tapSoft } from '../lib/haptics';
 import { layoutDay } from '../lib/layout';
@@ -156,7 +157,7 @@ export function DayTimeline({
           {allDayFor(days[0]).map((e, i) => {
             const c = swatch(e.color);
             return (
-              <Animated.View key={e.id} entering={FadeInDown.delay(i * 50).duration(300)}>
+              <Animated.View key={e.id} entering={FadeInDown.delay(stagger(i)).duration(DUR.quick)}>
                 <Squish
                   onPress={() => {
                     tapSoft();
@@ -233,7 +234,7 @@ export function DayTimeline({
               return (
                 <Animated.View
                   key={event.id}
-                  entering={FadeInDown.delay(Math.min(i, 8) * 40).duration(300)}
+                  entering={FadeInDown.delay(stagger(i)).duration(DUR.quick)}
                   style={[styles.eventWrap, { top, left, width: w - (multi ? 3 : 6), height }]}
                 >
                   <Squish
@@ -273,9 +274,6 @@ export function DayTimeline({
                         >
                           {event.title}
                         </Text>
-                        {event.done && !multi && (
-                          <Ionicons name="checkmark-circle" size={14} color={c.deep} />
-                        )}
                       </View>
                       {!tiny && settings.detail !== 'minimal' && (
                         <Text style={[styles.eventTime, { color: c.deep }]}>
@@ -296,7 +294,7 @@ export function DayTimeline({
 
           {showNow && (
             <Animated.View
-              entering={FadeIn.duration(500)}
+              entering={FadeIn.duration(DUR.smooth)}
               style={[StyleSheet.absoluteFill, styles.nowLayer]}
             >
               <View style={[styles.nowBadge, { top: nowTop - 8 }]}>

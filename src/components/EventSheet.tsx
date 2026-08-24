@@ -23,6 +23,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { DUR, EASE_OUT, SPRING } from '../lib/motion';
 import { addMonths, chipDay, fromKey, hhmm, monthYearTitle } from '../lib/date';
 import { notifySuccess, notifyWarn, tapLight, tapSoft } from '../lib/haptics';
 import { COLOR_KEYS, EMOJIS, theme } from '../theme';
@@ -71,8 +72,8 @@ export function EventSheet({
       touched.current = { emoji: false, color: false };
       ty.value = height;
       backdrop.value = 0;
-      ty.value = withSpring(0, { damping: 24, stiffness: 220, mass: 0.9 });
-      backdrop.value = withTiming(1, { duration: 240 });
+      ty.value = withSpring(0, SPRING.panel);
+      backdrop.value = withTiming(1, { duration: DUR.quick });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, draft]);
@@ -80,8 +81,8 @@ export function EventSheet({
   const finish = () => onClose();
 
   const dismiss = () => {
-    backdrop.value = withTiming(0, { duration: 180 });
-    ty.value = withTiming(height, { duration: 220 }, (done) => {
+    backdrop.value = withTiming(0, { duration: DUR.instant });
+    ty.value = withTiming(height, { duration: DUR.smooth, easing: EASE_OUT }, (done) => {
       if (done) runOnJS(finish)();
     });
   };
@@ -92,12 +93,12 @@ export function EventSheet({
     })
     .onEnd((e) => {
       if (e.translationY > 130 || e.velocityY > 900) {
-        backdrop.value = withTiming(0, { duration: 180 });
-        ty.value = withTiming(height, { duration: 200 }, (done) => {
+        backdrop.value = withTiming(0, { duration: DUR.instant });
+        ty.value = withTiming(height, { duration: DUR.smooth, easing: EASE_OUT }, (done) => {
           if (done) runOnJS(finish)();
         });
       } else {
-        ty.value = withSpring(0, { damping: 22, stiffness: 240 });
+        ty.value = withSpring(0, SPRING.settle);
       }
     });
 
@@ -182,13 +183,13 @@ export function EventSheet({
             </GestureDetector>
 
             <View style={styles.topBar}>
-              <Squish onPress={dismiss} style={styles.roundBtn} scaleTo={0.88}>
+              <Squish onPress={dismiss} style={styles.roundBtn} scaleTo={0.93}>
                 <Ionicons name="close" size={19} color={theme.inkSoft} />
               </Squish>
               <Squish
                 onPress={submit}
                 style={[styles.roundBtn, { backgroundColor: c.solid }]}
-                scaleTo={0.88}
+                scaleTo={0.93}
               >
                 <Ionicons name="checkmark" size={20} color="#FFFFFF" />
               </Squish>
@@ -200,12 +201,12 @@ export function EventSheet({
               contentContainerStyle={styles.scroll}
             >
               {/* Titre + emoji */}
-              <Animated.View layout={LinearTransition.springify().damping(20)}>
+              <Animated.View layout={LinearTransition.springify().damping(28).stiffness(340).mass(0.6)}>
                 <View style={[styles.titleRow, { backgroundColor: c.wash }]}>
                   <Squish
                     onPress={() => toggleSection('emoji')}
                     style={[styles.emojiBtn, { backgroundColor: 'rgba(255,255,255,0.8)' }]}
-                    scaleTo={0.88}
+                    scaleTo={0.93}
                   >
                     <Text style={styles.emojiBig}>{d.emoji}</Text>
                   </Squish>
@@ -223,14 +224,14 @@ export function EventSheet({
 
                 {section === 'emoji' && (
                   <Animated.View
-                    entering={FadeIn.duration(180)}
-                    exiting={FadeOut.duration(120)}
+                    entering={FadeIn.duration(DUR.quick)}
+                    exiting={FadeOut.duration(DUR.instant)}
                     style={styles.emojiGrid}
                   >
                     {EMOJIS.map((e) => (
                       <Squish
                         key={e}
-                        scaleTo={0.82}
+                        scaleTo={0.95}
                         onPress={() => {
                           tapLight();
                           touched.current.emoji = true;
@@ -257,7 +258,7 @@ export function EventSheet({
                   return (
                     <Squish
                       key={k}
-                      scaleTo={0.82}
+                      scaleTo={0.95}
                       dimTo={1}
                       onPress={() => {
                         tapLight();
@@ -281,7 +282,7 @@ export function EventSheet({
 
               {/* Quand */}
               <Animated.View
-                layout={LinearTransition.springify().damping(20)}
+                layout={LinearTransition.springify().damping(28).stiffness(340).mass(0.6)}
                 style={styles.card}
               >
                 <Row
@@ -293,7 +294,7 @@ export function EventSheet({
                   onPress={() => toggleSection('date')}
                 />
                 {section === 'date' && (
-                  <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)}>
+                  <Animated.View entering={FadeIn.duration(DUR.quick)} exiting={FadeOut.duration(DUR.instant)}>
                     <View style={styles.pickerHeader}>
                       <Squish
                         style={styles.navBtn}
@@ -359,7 +360,7 @@ export function EventSheet({
                 </Squish>
 
                 {!d.allDay && (
-                  <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(120)}>
+                  <Animated.View entering={FadeIn.duration(DUR.quick)} exiting={FadeOut.duration(DUR.instant)}>
                     <View style={styles.divider} />
                     <Row
                       icon="play-outline"
@@ -370,7 +371,7 @@ export function EventSheet({
                       onPress={() => toggleSection('start')}
                     />
                     {section === 'start' && (
-                      <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)}>
+                      <Animated.View entering={FadeIn.duration(DUR.quick)} exiting={FadeOut.duration(DUR.instant)}>
                         <TimeWheel value={d.start} onChange={setStart} />
                         <View style={styles.divider} />
                       </Animated.View>
@@ -384,7 +385,7 @@ export function EventSheet({
                       onPress={() => toggleSection('end')}
                     />
                     {section === 'end' && (
-                      <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)}>
+                      <Animated.View entering={FadeIn.duration(DUR.quick)} exiting={FadeOut.duration(DUR.instant)}>
                         <TimeWheel value={d.end} onChange={setEnd} />
                       </Animated.View>
                     )}

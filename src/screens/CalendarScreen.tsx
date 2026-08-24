@@ -3,7 +3,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { DUR } from '../lib/motion';
 import { DayRail } from '../components/DayRail';
+import { DaySheet } from '../components/DaySheet';
 import { DayTimeline } from '../components/DayTimeline';
 import { EmptyDay } from '../components/EmptyDay';
 import { EventCard } from '../components/EventCard';
@@ -48,6 +50,9 @@ const WEEK_SPAN = 260;
 const WEEK_COUNT = WEEK_SPAN * 2 + 1;
 const YEAR_SPAN = 40;
 const YEAR_COUNT = YEAR_SPAN * 2 + 1;
+
+/** course minimale de la feuille du jour : en deçà, la tirer n'apporte rien */
+const MIN_SHEET_TRAVEL = 90;
 
 const SCALES: { key: Scale; label: string }[] = [
   { key: 'year', label: 'Année' },
@@ -145,9 +150,13 @@ export function CalendarScreen({
   const cellHeight = useMemo(() => {
     const base = CELL_HEIGHT[settings.monthCells] * DENSITY_SCALE[settings.density];
     if (bodyHeight <= 0) return base;
-    if (settings.monthPanel === 'none') return Math.max(46, (bodyHeight - 34) / 6);
+    // plein écran : la grille prend tout, moins la place de la barre d'onglets
+    // flottante — sinon la dernière semaine se retrouve dessous
+    if (settings.monthPanel === 'none') {
+      return Math.max(46, (bodyHeight - 34 - bottomInset) / 6);
+    }
     return Math.max(42, Math.min(base, (bodyHeight - 190) / 6));
-  }, [settings.monthCells, settings.density, settings.monthPanel, bodyHeight]);
+  }, [settings.monthCells, settings.density, settings.monthPanel, bodyHeight, bottomInset]);
 
   const selectDay = onSelectDay;
 
@@ -407,10 +416,18 @@ export function CalendarScreen({
         );
       }
 
-      default:
+      default: {
+        const gridHeight = cellHeight * 6 + 26;
+        // la feuille tirée vers le haut laisse voir l'en-tête des jours et
+        // deux semaines : assez pour garder ses repères dans le mois
+        const sheetTop = Math.max(
+          10,
+          Math.min(gridHeight - MIN_SHEET_TRAVEL, 26 + cellHeight * 2),
+        );
+
         return (
           <>
-            <View style={{ height: cellHeight * 6 + 26 }}>
+            <View style={{ height: gridHeight }}>
               <Pager
                 count={MONTH_COUNT}
                 index={monthIndex}
@@ -431,51 +448,23 @@ export function CalendarScreen({
               />
             </View>
 
-            {settings.monthPanel === 'day' && (
-              <>
-                <View style={styles.listHeader}>
-                  <Text style={styles.listTitle}>{dayLabel}</Text>
-                  <View style={styles.listRule} />
-                  <Text style={styles.listCount}>{dayEvents.length}</Text>
-                </View>
-                <ScrollView
-                  style={styles.flex}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{
-                    paddingHorizontal: 18,
-                    paddingBottom: bottomInset + 30,
-                  }}
-                >
-                  {dayEvents.length === 0 ? (
-                    <EmptyDay />
-                  ) : (
-                    dayEvents.map((e, i) => (
-                      <EventCard
-                        key={e.id}
-                        event={e}
-                        index={i}
-                        onPress={openEvent}
-                        onToggle={toggleDone}
-                        onRemove={onRemoveEvent}
-                      />
-                    ))
-                  )}
-                </ScrollView>
-              </>
-            )}
-
-            {settings.monthPanel === 'agenda' && (
-              <PlannerList
-                days={Array.from({ length: 120 }, (_, i) => toKey(addDays(selectedDate, i)))}
-                byDay={visibleByDay}
+            {settings.monthPanel === 'day' && bodyHeight > 0 && (
+              <DaySheet
+                label={dayLabel}
+                events={dayEvents}
                 onOpen={openEvent}
                 onToggle={toggleDone}
                 onRemove={onRemoveEvent}
+                onCreate={() => onCreateAt(selectedKey)}
+                topExpanded={sheetTop}
+                topCollapsed={gridHeight}
+                bodyHeight={bodyHeight}
                 bottomInset={bottomInset}
               />
             )}
           </>
         );
+      }
     }
   };
 
@@ -495,11 +484,11 @@ export function CalendarScreen({
           </View>
 
           {!isOnToday && (
-            <Animated.View entering={FadeIn.duration(200)}>
+            <Animated.View entering={FadeIn.duration(DUR.quick)}>
               <Squish
                 style={[styles.iconBtn, { backgroundColor: `${ui.accent}1F` }]}
                 onPress={goToday}
-                scaleTo={0.88}
+                scaleTo={0.93}
               >
                 <Ionicons name="locate" size={18} color={ui.accent} />
               </Squish>
@@ -508,7 +497,7 @@ export function CalendarScreen({
 
           <Squish
             style={styles.iconBtn}
-            scaleTo={0.88}
+            scaleTo={0.93}
             onPress={() => {
               tapSoft();
               onOpenSettings();
@@ -526,7 +515,7 @@ export function CalendarScreen({
       <View style={styles.flex} onLayout={(e) => setBodyHeight(e.nativeEvent.layout.height)}>
         <Animated.View
           key={`${scale}-${settings.weekLayout}-${settings.monthPanel}-${settings.monthCells}`}
-          entering={FadeIn.duration(200)}
+          entering={FadeIn.duration(DUR.quick)}
           style={styles.flex}
         >
           {body()}
@@ -561,21 +550,4 @@ const styles = StyleSheet.create({
   },
   scaleBar: { marginTop: 14 },
   monthPage: { paddingHorizontal: 10, paddingTop: 8 },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 12,
-  },
-  listTitle: { fontSize: 15, fontWeight: '800', color: theme.ink, letterSpacing: -0.3 },
-  listRule: { flex: 1, height: 1, backgroundColor: theme.hairline },
-  listCount: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: theme.inkFaint,
-    minWidth: 16,
-    textAlign: 'right',
-  },
 });

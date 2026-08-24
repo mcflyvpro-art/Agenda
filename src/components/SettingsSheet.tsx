@@ -18,6 +18,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { DUR, EASE_OUT, SPRING } from '../lib/motion';
 import { notifySuccess, tapLight, tapSoft } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import type { DayLayout, MonthCells, MonthPanel, WeekLayout } from '../store/settings';
@@ -38,7 +39,6 @@ const MONTH_TILES: { key: MonthCells; label: string }[] = [
 
 const PANEL_TILES: { key: MonthPanel; label: string }[] = [
   { key: 'day', label: 'Le jour' },
-  { key: 'agenda', label: 'À venir' },
   { key: 'none', label: 'Rien' },
 ];
 
@@ -70,16 +70,16 @@ export function SettingsSheet({ visible, onClose }: Props) {
     if (!visible) return;
     ty.value = height;
     backdrop.value = 0;
-    ty.value = withSpring(0, { damping: 24, stiffness: 220, mass: 0.9 });
-    backdrop.value = withTiming(1, { duration: 240 });
+    ty.value = withSpring(0, SPRING.panel);
+    backdrop.value = withTiming(1, { duration: DUR.quick });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const finish = () => onClose();
 
   const dismiss = () => {
-    backdrop.value = withTiming(0, { duration: 180 });
-    ty.value = withTiming(height, { duration: 220 }, (done) => {
+    backdrop.value = withTiming(0, { duration: DUR.instant });
+    ty.value = withTiming(height, { duration: DUR.smooth, easing: EASE_OUT }, (done) => {
       if (done) runOnJS(finish)();
     });
   };
@@ -90,12 +90,12 @@ export function SettingsSheet({ visible, onClose }: Props) {
     })
     .onEnd((e) => {
       if (e.translationY > 130 || e.velocityY > 900) {
-        backdrop.value = withTiming(0, { duration: 180 });
-        ty.value = withTiming(height, { duration: 200 }, (done) => {
+        backdrop.value = withTiming(0, { duration: DUR.instant });
+        ty.value = withTiming(height, { duration: DUR.smooth, easing: EASE_OUT }, (done) => {
           if (done) runOnJS(finish)();
         });
       } else {
-        ty.value = withSpring(0, { damping: 22, stiffness: 240 });
+        ty.value = withSpring(0, SPRING.settle);
       }
     });
 
@@ -125,7 +125,7 @@ export function SettingsSheet({ visible, onClose }: Props) {
           <View style={styles.topBar}>
             <Squish
               style={styles.roundBtn}
-              scaleTo={0.88}
+              scaleTo={0.93}
               onPress={() => {
                 tapLight();
                 reset();
@@ -135,7 +135,7 @@ export function SettingsSheet({ visible, onClose }: Props) {
             </Squish>
             <Squish
               style={[styles.roundBtn, { backgroundColor: ui.accent }]}
-              scaleTo={0.88}
+              scaleTo={0.93}
               onPress={() => {
                 notifySuccess();
                 dismiss();
@@ -161,7 +161,7 @@ export function SettingsSheet({ visible, onClose }: Props) {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scroll}
           >
-            <Animated.View entering={FadeIn.duration(180)}>
+            <Animated.View entering={FadeIn.duration(DUR.quick)}>
               {tab === 'views' && (
                 <>
                   <Section title="Mois">

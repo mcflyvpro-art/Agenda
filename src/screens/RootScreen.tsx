@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { DUR } from '../lib/motion';
 import { AddButton } from '../components/AddButton';
 import { EventSheet } from '../components/EventSheet';
 import { SettingsSheet } from '../components/SettingsSheet';
@@ -191,7 +192,7 @@ export function RootScreen() {
 
   return (
     <View style={styles.root}>
-      <Animated.View key={tab} entering={FadeIn.duration(200)} style={styles.root}>
+      <Animated.View key={tab} entering={FadeIn.duration(DUR.quick)} style={styles.root}>
         {screen}
       </Animated.View>
 

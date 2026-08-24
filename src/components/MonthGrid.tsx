@@ -104,7 +104,7 @@ const DayCell = memo(function DayCell({
       }
       delayLongPress={320}
       style={[styles.cell, { height }]}
-      scaleTo={0.9}
+      scaleTo={0.94}
       dimTo={1}
     >
       <View
@@ -114,6 +114,10 @@ const DayCell = memo(function DayCell({
             paddingVertical: compact ? 3 : 5,
             borderRadius: theme.radius.md,
             justifyContent: layout === 'titles' && !compact ? 'flex-start' : 'center',
+            // en plein écran les cases deviennent très hautes : sans plafond,
+            // la teinte de fond s'étire en longue barre. Les titres, eux, ont
+            // besoin de toute la hauteur pour empiler leurs étiquettes.
+            maxHeight: compact || layout === 'titles' ? undefined : 74,
           },
           showTint && tint ? { backgroundColor: tint.wash } : null,
           heat > 0 ? { backgroundColor: alpha(accent, heat) } : null,
@@ -133,7 +137,7 @@ const DayCell = memo(function DayCell({
           {selected && (
             <Animated.View
               key={key}
-              entering={ZoomIn.springify().damping(13).stiffness(220)}
+              entering={ZoomIn.springify().damping(22).stiffness(340).mass(0.5)}
               style={[
                 StyleSheet.absoluteFill,
                 { borderRadius: circle / 2, backgroundColor: isToday ? today : theme.ink },

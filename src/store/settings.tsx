@@ -18,7 +18,7 @@ export type Scale = 'year' | 'month' | 'week' | 'day' | 'list';
 /** Ce que raconte une case du mois. */
 export type MonthCells = 'dots' | 'tint' | 'bars' | 'titles' | 'heat';
 /** Ce qui occupe le bas de l'écran sous la grille du mois. */
-export type MonthPanel = 'none' | 'day' | 'agenda';
+export type MonthPanel = 'none' | 'day';
 export type WeekLayout = 'grid7' | 'grid3' | 'list';
 export type DayLayout = 'timeline' | 'rail' | 'list';
 export type DayRange = 'full' | 'active' | 'auto';
@@ -111,7 +111,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<Settings>;
           // on repart des valeurs par défaut : un réglage ajouté plus tard reste valide
-          setSettings({ ...DEFAULTS, ...parsed });
+          const merged = { ...DEFAULTS, ...parsed };
+          // un réglage retiré depuis (l'ancien panneau « À venir ») ne doit pas
+          // survivre dans les préférences déjà enregistrées
+          if (merged.monthPanel !== 'day' && merged.monthPanel !== 'none') {
+            merged.monthPanel = DEFAULTS.monthPanel;
+          }
+          setSettings(merged);
         }
       } catch {
         // réglages illisibles : on garde les valeurs par défaut

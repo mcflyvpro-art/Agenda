@@ -54,7 +54,7 @@ export function DayBar({ events, live = true, onPressEvent, dark = false }: Prop
           return (
             <Squish
               key={e.id}
-              scaleTo={0.9}
+              scaleTo={0.94}
               dimTo={1}
               onPress={
                 onPressEvent

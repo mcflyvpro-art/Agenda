@@ -10,6 +10,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { DUR, EASE_OUT, SPRING } from '../lib/motion';
 import { notifyWarn, tapLight, tapMedium } from '../lib/haptics';
 
 const THRESHOLD = 78;
@@ -68,14 +69,14 @@ export function SwipeRow({
     })
     .onEnd(() => {
       if (x.value > THRESHOLD && onRight) {
-        x.value = withSpring(0, { damping: 22, stiffness: 220 });
+        x.value = withSpring(0, SPRING.settle);
         runOnJS(fireRight)();
       } else if (x.value < -THRESHOLD && onLeft) {
-        x.value = withTiming(-500, { duration: 220 }, (done) => {
+        x.value = withTiming(-500, { duration: DUR.quick, easing: EASE_OUT }, (done) => {
           if (done) runOnJS(fireLeft)();
         });
       } else {
-        x.value = withSpring(0, { damping: 24, stiffness: 260 });
+        x.value = withSpring(0, SPRING.settle);
       }
       armed.value = 0;
     });
@@ -94,10 +95,10 @@ export function SwipeRow({
     .enabled(!!onTap && !disabled)
     .maxDuration(260)
     .onBegin(() => {
-      pressed.value = withSpring(1, { damping: 20, stiffness: 400, mass: 0.4 });
+      pressed.value = withSpring(1, SPRING.press);
     })
     .onFinalize(() => {
-      pressed.value = withTiming(0, { duration: 160 });
+      pressed.value = withTiming(0, { duration: DUR.quick, easing: EASE_OUT });
     })
     .onEnd((_e, success) => {
       if (success && onTap) runOnJS(onTap)();

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { DUR } from '../lib/motion';
 import { Squish } from '../components/Squish';
 import { TodoCard } from '../components/TodoCard';
 import { notifySuccess, tapLight } from '../lib/haptics';
@@ -67,7 +68,7 @@ export function TodoScreen({ onOpen, onSchedule, bottomInset }: Props) {
         contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: bottomInset + 40 }}
       >
         {pending.length === 0 && done.length === 0 && (
-          <Animated.View entering={FadeIn.duration(300)} style={styles.empty}>
+          <Animated.View entering={FadeIn.duration(DUR.quick)} style={styles.empty}>
             <View style={styles.emptyBubble}>
               <Ionicons name="sparkles-outline" size={26} color={theme.inkFaint} />
             </View>
@@ -97,7 +98,7 @@ export function TodoScreen({ onOpen, onSchedule, bottomInset }: Props) {
                   clearDone();
                 }}
                 style={styles.clearBtn}
-                scaleTo={0.86}
+                scaleTo={0.93}
               >
                 <Ionicons name="trash-outline" size={15} color={theme.inkFaint} />
               </Squish>

@@ -7,6 +7,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { DUR, EASE_OUT, SPRING } from '../lib/motion';
 import { isPagerGestureActive } from './Pager';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -20,11 +21,15 @@ type Props = PressableProps & {
 };
 
 /**
- * Bouton qui « respire » : ressort doux à l'appui.
- * L'animation est portée par la valeur partagée, pas recalculée à chaque frame
- * dans le style — c'est ce qui la rend stable quand la liste se réordonne.
+ * Bouton qui « respire » : l'appui l'enfonce à peine, le relâchement le
+ * repose. Volontairement discret — on doit sentir que ça répond, pas voir
+ * le bouton bouger.
+ *
+ * L'animation est portée par la valeur partagée, pas recalculée à chaque
+ * frame dans le style — c'est ce qui la rend stable quand la liste se
+ * réordonne.
  */
-export function Squish({ children, style, scaleTo = 0.955, dimTo = 0.9, ...rest }: Props) {
+export function Squish({ children, style, scaleTo = 0.97, dimTo = 0.94, ...rest }: Props) {
   const pressed = useSharedValue(0);
 
   const animated = useAnimatedStyle(() => ({
@@ -36,11 +41,11 @@ export function Squish({ children, style, scaleTo = 0.955, dimTo = 0.9, ...rest 
     <AnimatedPressable
       {...rest}
       onPressIn={(e) => {
-        pressed.value = withSpring(1, { damping: 20, stiffness: 400, mass: 0.4 });
+        pressed.value = withSpring(1, SPRING.press);
         rest.onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        pressed.value = withTiming(0, { duration: 160 });
+        pressed.value = withTiming(0, { duration: DUR.quick, easing: EASE_OUT });
         rest.onPressOut?.(e);
       }}
       onPress={(e) => {

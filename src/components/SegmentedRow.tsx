@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { SPRING } from '../lib/motion';
 import { tapLight } from '../lib/haptics';
 import { theme } from '../theme';
 
@@ -27,7 +28,7 @@ export function SegmentedRow<T extends string | number>({
 
   const pill = useAnimatedStyle(() => ({
     width: seg,
-    transform: [{ translateX: withSpring(idx * seg, { damping: 20, stiffness: 240 }) }],
+    transform: [{ translateX: withSpring(idx * seg, SPRING.settle) }],
   }));
 
   const onLayout = (e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width);

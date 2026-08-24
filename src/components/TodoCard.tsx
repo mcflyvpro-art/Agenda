@@ -1,7 +1,7 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { DUR, stagger } from '../lib/motion';
 import { theme } from '../theme';
 import type { Todo } from '../types';
 import { SwipeRow } from './SwipeRow';
@@ -31,8 +31,8 @@ export function TodoCard({
 }: Props) {
   return (
     <Animated.View
-      entering={FadeIn.delay(Math.min(index, 6) * 35).duration(240)}
-      exiting={FadeOut.duration(140)}
+      entering={FadeIn.delay(stagger(index)).duration(DUR.quick)}
+      exiting={FadeOut.duration(DUR.instant)}
       style={styles.slot}
     >
       <SwipeRow
@@ -44,10 +44,6 @@ export function TodoCard({
         radius={theme.radius.lg}
       >
         <View style={[styles.card, compact && styles.compact, todo.done && styles.cardDone]}>
-          <View style={[styles.dot, todo.done && styles.dotDone]}>
-            {todo.done && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
-          </View>
-
           <Text
             numberOfLines={compact ? 1 : 2}
             style={[
@@ -84,16 +80,6 @@ const styles = StyleSheet.create({
   },
   compact: { paddingVertical: 12 },
   cardDone: { backgroundColor: 'rgba(255,255,255,0.62)' },
-  dot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: 'rgba(32,32,43,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dotDone: { backgroundColor: 'rgba(32,32,43,0.28)', borderColor: 'transparent' },
   title: { flex: 1, fontSize: 15.5, fontWeight: '700', color: theme.ink, letterSpacing: -0.3 },
   titleDone: { color: theme.inkFaint, textDecorationLine: 'line-through', fontWeight: '600' },
   estimate: {

@@ -4,12 +4,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { DUR } from '../lib/motion';
 import { DayBar } from '../components/DayBar';
 import { DayRing } from '../components/DayRing';
 import { EventCard } from '../components/EventCard';
 import { Squish } from '../components/Squish';
 import { TodoCard } from '../components/TodoCard';
-import { hhmm, longDay, minutesNow, todayKey } from '../lib/date';
+import { durationLabel, hhmm, longDay, minutesNow, todayKey } from '../lib/date';
 import { tapSoft } from '../lib/haptics';
 import { useEvents } from '../store/events';
 import { useSettings } from '../store/settings';
@@ -31,6 +32,49 @@ type Props = {
   onOpenSettings: () => void;
   bottomInset: number;
 };
+
+/** Une mesure du jour : la valeur d'abord, ce qu'elle mesure en dessous. */
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.tile}>
+      <Text numberOfLines={1} style={styles.tileValue}>
+        {value}
+      </Text>
+      <Text numberOfLines={1} style={styles.tileLabel}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Minutes réellement occupées, chevauchements fusionnés.
+ * Additionner bêtement les durées compterait deux fois deux rendez-vous
+ * qui se superposent — et le tableau de bord annoncerait plus d'heures
+ * que la journée n'en contient.
+ */
+function busyMinutes(events: AgendaEvent[], from = 0, to = 1440): number {
+  const spans = events
+    .filter((e) => !e.allDay)
+    .map((e) => [Math.max(from, e.start), Math.min(to, e.end)] as const)
+    .filter(([s, x]) => x > s)
+    .sort((a, b) => a[0] - b[0]);
+
+  let total = 0;
+  let openStart = -1;
+  let openEnd = -1;
+  for (const [s, x] of spans) {
+    if (s > openEnd) {
+      if (openEnd > openStart) total += openEnd - openStart;
+      openStart = s;
+      openEnd = x;
+    } else if (x > openEnd) {
+      openEnd = x;
+    }
+  }
+  if (openEnd > openStart) total += openEnd - openStart;
+  return total;
+}
 
 function untilLabel(target: number, now: number): string {
   const diff = target - now;
@@ -73,17 +117,22 @@ export function HomeScreen({
 
   const timed = useMemo(() => today.filter((e) => !e.allDay), [today]);
   const next = useMemo(() => timed.find((e) => e.end > now && !e.done) ?? null, [timed, now]);
-  const busy = useMemo(
-    () => timed.reduce((sum, e) => sum + Math.max(0, e.end - e.start), 0),
-    [timed],
-  );
   const rest = today.filter((e) => e.id !== next?.id);
   const nextColor = next ? swatch(next.color) : null;
-  const doneCount = today.filter((e) => e.done).length;
-  const left = 1440 - now;
 
-  const hoursLabel = (mins: number) =>
-    mins >= 60 ? `${Math.round((mins / 60) * 10) / 10}h` : `${mins}m`;
+  /*
+    Les compteurs se lisent toujours sur la journée entière (`all`), jamais
+    sur la liste filtrée : « masquer ce qui est fait » range la liste, il ne
+    doit pas faire mentir le tableau de bord — sinon « faits » afficherait
+    éternellement 0.
+  */
+  const doneCount = useMemo(() => all.filter((e) => e.done).length, [all]);
+  const busy = useMemo(() => busyMinutes(all), [all]);
+  // le temps encore libre : ce qui reste de la journée, moins ce qui y est déjà pris
+  const free = useMemo(
+    () => Math.max(0, 1440 - now - busyMinutes(all, now)),
+    [all, now],
+  );
 
   return (
     <ScrollView
@@ -94,7 +143,7 @@ export function HomeScreen({
         <Text style={styles.date}>{longDay(new Date())}</Text>
         <Squish
           style={styles.iconBtn}
-          scaleTo={0.88}
+          scaleTo={0.93}
           onPress={() => {
             tapSoft();
             onOpenSettings();
@@ -104,7 +153,7 @@ export function HomeScreen({
         </Squish>
       </View>
 
-      <Animated.View entering={FadeInDown.duration(320)} style={styles.block}>
+      <Animated.View entering={FadeInDown.duration(DUR.smooth)} style={styles.block}>
         {/*
           Le bloc "ouvrir l'agenda" (anneau + tuiles) et la barre du jour ont
           chacun leur propre zone tactile : elles ne doivent jamais s'imbriquer
@@ -127,38 +176,23 @@ export function HomeScreen({
               onOpenAgenda();
             }}
           >
-            <DayRing events={today} now={now} />
+            <DayRing events={all} now={now} size={116} />
 
             <View style={styles.tiles}>
-              <View style={styles.tile}>
-                <Ionicons name="albums" size={15} color="rgba(255,255,255,0.85)" />
-                <Text style={styles.tileValue}>{today.length}</Text>
-              </View>
-              <View style={styles.tile}>
-                <Ionicons name="checkmark-done" size={15} color="rgba(255,255,255,0.85)" />
-                <Text style={styles.tileValue}>
-                  {doneCount}
-                  <Text style={styles.tileValueMuted}>/{today.length}</Text>
-                </Text>
-              </View>
-              <View style={styles.tile}>
-                <Ionicons name="flash" size={15} color="rgba(255,255,255,0.85)" />
-                <Text style={styles.tileValue}>{hoursLabel(busy)}</Text>
-              </View>
-              <View style={styles.tile}>
-                <Ionicons name="hourglass" size={15} color="rgba(255,255,255,0.85)" />
-                <Text style={styles.tileValue}>{hoursLabel(Math.max(0, left))}</Text>
-              </View>
+              <Stat label="Prévus" value={`${all.length}`} />
+              <Stat label="Faits" value={`${doneCount}/${all.length}`} />
+              <Stat label="Occupé" value={durationLabel(0, busy)} />
+              <Stat label="Libre" value={durationLabel(0, free)} />
             </View>
           </Squish>
 
-          <DayBar events={today} onPressEvent={onOpenEvent} dark />
+          <DayBar events={all} onPressEvent={onOpenEvent} dark />
         </View>
       </Animated.View>
 
       <View style={styles.block}>
         {next && nextColor ? (
-          <Animated.View entering={FadeInDown.delay(50).duration(300)}>
+          <Animated.View entering={FadeInDown.delay(40).duration(DUR.quick)}>
             <Squish
               style={[styles.next, { backgroundColor: nextColor.wash }]}
               onPress={() => {
@@ -185,7 +219,7 @@ export function HomeScreen({
             </Squish>
           </Animated.View>
         ) : (
-          <Animated.View entering={FadeIn.duration(300)}>
+          <Animated.View entering={FadeIn.duration(DUR.quick)}>
             <Squish
               style={styles.quiet}
               onPress={() => {
@@ -280,26 +314,31 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   tile: {
-    width: '47%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
+    // deux par ligne : la largeur en pourcentage laisse la gouttière respirer
+    width: '47.5%',
     backgroundColor: 'rgba(255,255,255,0.16)',
     borderRadius: 14,
-    paddingVertical: 9,
-    paddingHorizontal: 11,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
   tileValue: {
     fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
     fontVariant: ['tabular-nums'],
   },
-  tileValueMuted: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
+  tileLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.72)',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginTop: 1,
+  },
   next: { borderRadius: theme.radius.lg, padding: 16 },
   nextTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   nextEmoji: { fontSize: 26 },

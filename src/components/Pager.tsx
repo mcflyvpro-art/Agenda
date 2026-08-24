@@ -8,6 +8,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { DUR, EASE_OUT, SPRING } from '../lib/motion';
 
 type Props = {
   count: number;
@@ -88,7 +89,7 @@ export function Pager({ count, index, width, onIndexChange, renderPage, pageHeig
 
       if (goNext) {
         busy.value = true;
-        dragX.value = withTiming(-width, { duration: 220 }, (done) => {
+        dragX.value = withTiming(-width, { duration: DUR.quick, easing: EASE_OUT }, (done) => {
           if (done) {
             dragX.value = 0;
             busy.value = false;
@@ -97,7 +98,7 @@ export function Pager({ count, index, width, onIndexChange, renderPage, pageHeig
         });
       } else if (goPrev) {
         busy.value = true;
-        dragX.value = withTiming(width, { duration: 220 }, (done) => {
+        dragX.value = withTiming(width, { duration: DUR.quick, easing: EASE_OUT }, (done) => {
           if (done) {
             dragX.value = 0;
             busy.value = false;
@@ -105,7 +106,7 @@ export function Pager({ count, index, width, onIndexChange, renderPage, pageHeig
           }
         });
       } else {
-        dragX.value = withSpring(0, { damping: 26, stiffness: 300 });
+        dragX.value = withSpring(0, SPRING.settle);
       }
     });
 

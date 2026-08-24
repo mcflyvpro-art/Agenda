@@ -36,7 +36,7 @@ export function OptionTile({ label, selected, onPress, children }: Props) {
         </View>
         {selected && (
           <Animated.View
-            entering={ZoomIn.springify().damping(14)}
+            entering={ZoomIn.springify().damping(22).stiffness(340).mass(0.5)}
             style={[styles.check, { backgroundColor: ui.accent }]}
           >
             <Ionicons name="checkmark" size={11} color="#FFFFFF" />

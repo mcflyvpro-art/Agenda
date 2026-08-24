@@ -95,13 +95,10 @@ export function PanelPreview({ variant, swatch }: { variant: MonthPanel; swatch:
           <View key={i} style={styles.miniCell} />
         ))}
       </View>
-      {variant === 'day' && <View style={styles.listWrap}>{[0, 1, 2].map((i) => bar(SAMPLE[i], i))}</View>}
-      {variant === 'agenda' && (
+      {variant === 'day' && (
         <View style={styles.listWrap}>
           <View style={styles.dayLabel} />
-          {bar('sky', 0)}
-          <View style={styles.dayLabel} />
-          {bar('mint', 1)}
+          {[0, 1].map((i) => bar(SAMPLE[i], i))}
         </View>
       )}
     </View>

@@ -13,11 +13,11 @@ export function AddButton({ onPress, onLongPress, bottom }: Props) {
   const { ui } = useSettings();
   return (
     <Animated.View
-      entering={FadeInUp.delay(250).springify().damping(16)}
+      entering={FadeInUp.delay(120).springify().damping(24).stiffness(320).mass(0.6)}
       style={[styles.wrap, { bottom }]}
     >
       <Squish
-        scaleTo={0.9}
+        scaleTo={0.94}
         dimTo={1}
         onPress={() => {
           tapMedium();

@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { DUR, stagger } from '../lib/motion';
 import { durationLabel, hhmm } from '../lib/date';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
@@ -25,8 +26,8 @@ export function EventCard({ event, onPress, onToggle, onRemove, index = 0 }: Pro
 
   return (
     <Animated.View
-      entering={FadeIn.delay(Math.min(index, 6) * 35).duration(240)}
-      exiting={FadeOut.duration(140)}
+      entering={FadeIn.delay(stagger(index)).duration(DUR.quick)}
+      exiting={FadeOut.duration(DUR.instant)}
       style={styles.slot}
     >
       <SwipeRow
@@ -97,10 +98,6 @@ export function EventCard({ event, onPress, onToggle, onRemove, index = 0 }: Pro
               </Text>
             )}
           </View>
-
-          <View style={[styles.state, { borderColor: c.solid }, done && { backgroundColor: c.solid }]}>
-            {done && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-          </View>
         </View>
       </SwipeRow>
     </Animated.View>
@@ -144,14 +141,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12.5, fontWeight: '600', letterSpacing: -0.1 },
   notes: { fontSize: 12.5, fontWeight: '500', opacity: 0.75, marginTop: 4, lineHeight: 17 },
   dot: { width: 3, height: 3, borderRadius: 2 },
-  state: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-    opacity: 0.75,
-  },
 });

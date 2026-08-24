@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { DUR } from '../lib/motion';
 import { tapSoft } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
@@ -64,11 +65,11 @@ function Item({
   onPress: () => void;
 }) {
   const pill = useAnimatedStyle(() => ({
-    opacity: withTiming(active ? 1 : 0, { duration: 180 }),
+    opacity: withTiming(active ? 1 : 0, { duration: DUR.quick }),
   }));
 
   return (
-    <Squish style={styles.item} scaleTo={0.92} dimTo={1} onPress={onPress}>
+    <Squish style={styles.item} scaleTo={0.95} dimTo={1} onPress={onPress}>
       <Animated.View style={[styles.pill, { backgroundColor: `${accent}1F` }, pill]} />
       <View>
         <Ionicons name={icon} size={22} color={active ? accent : 'rgba(32,32,43,0.28)'} />
