@@ -1,7 +1,5 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { DUR } from '../lib/motion';
 import { fromKey, monthYearTitle, relativeDayLabel, todayKey } from '../lib/date';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
@@ -94,9 +92,9 @@ export function PlannerList({
 /** Enveloppe animée : on ne rejoue l'apparition que si la liste change vraiment. */
 export function PlannerFade({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <Animated.View key={id} entering={FadeIn.duration(DUR.quick)} style={{ flex: 1 }}>
+    <View key={id} style={{ flex: 1 }}>
       {children}
-    </Animated.View>
+    </View>
   );
 }
 

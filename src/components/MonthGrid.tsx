@@ -1,6 +1,5 @@
 import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
 import {
   getISOWeek,
   isSameDay,
@@ -135,9 +134,8 @@ const DayCell = memo(function DayCell({
           }}
         >
           {selected && (
-            <Animated.View
+            <View
               key={key}
-              entering={ZoomIn.springify().damping(22).stiffness(340).mass(0.5)}
               style={[
                 StyleSheet.absoluteFill,
                 { borderRadius: circle / 2, backgroundColor: isToday ? today : theme.ink },

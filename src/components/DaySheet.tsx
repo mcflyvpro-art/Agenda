@@ -76,10 +76,16 @@ export function DaySheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [travel]);
 
-  /** suite d'une bascule : l'état React et le retour haptique */
+  /**
+   * Suite d'une bascule : l'état React et le retour haptique.
+   * On ne réveille React que si la position change vraiment — un simple
+   * repli sur place ne doit pas provoquer de rendu au milieu du ressort.
+   */
   const settle = (toExpanded: boolean) => {
-    setExpanded(toExpanded);
-    tapSoft();
+    setExpanded((cur) => {
+      if (cur !== toExpanded) tapSoft();
+      return toExpanded;
+    });
   };
 
   /** bascule déclenchée par un tap sur la poignée */
@@ -96,11 +102,12 @@ export function DaySheet({
       startY.value = ty.value;
     })
     .onUpdate((e) => {
+      /* Bornage strict entre les deux positions. Une résistance élastique
+         laissait la feuille dépasser ses limites : tirée vers le bas elle
+         emmenait sa liste hors de l'écran, d'où des cartes qui semblaient
+         disparaître. Ici elle ne peut littéralement pas en sortir. */
       const raw = startY.value + e.translationY;
-      // résistance douce au-delà des deux positions : la feuille ne part
-      // jamais dans le vide, mais on sent qu'on tire dessus
-      ty.value =
-        raw < 0 ? raw * 0.22 : raw > travel ? travel + (raw - travel) * 0.22 : raw;
+      ty.value = Math.max(0, Math.min(travel, raw));
     })
     .onEnd((e) => {
       // la vitesse décide d'abord, la position ensuite
@@ -157,9 +164,12 @@ export function DaySheet({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.list,
-          // repliée, le bas de la feuille passe sous la barre d'onglets : on
-          // rallonge le contenu d'autant pour que rien n'y reste coincé
-          { paddingBottom: bottomInset + 20 + (expanded ? 0 : travel) },
+          /* Marge du bas constante, calculée pour la position basse — la
+             plus défavorable, puisque le bas de la feuille passe alors sous
+             la barre d'onglets. La faire dépendre de l'état rejouait une
+             mise en page en plein ressort, et la liste sautait sous le
+             doigt. Une valeur fixe : plus rien ne bouge en basculant. */
+          { paddingBottom: bottomInset + 20 + travel },
         ]}
       >
         {events.length === 0 ? (

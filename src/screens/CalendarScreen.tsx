@@ -2,8 +2,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { DUR } from '../lib/motion';
 import { SCROLL_IN_PAGER } from '../lib/gestures';
 import { DayRail } from '../components/DayRail';
 import { DaySheet } from '../components/DaySheet';
@@ -556,7 +554,7 @@ export function CalendarScreen({
           </View>
 
           {!isOnToday && (
-            <Animated.View entering={FadeIn.duration(DUR.quick)}>
+            <View >
               <Squish
                 style={[styles.iconBtn, { backgroundColor: `${ui.accent}1F` }]}
                 onPress={goToday}
@@ -564,7 +562,7 @@ export function CalendarScreen({
               >
                 <Ionicons name="locate" size={18} color={ui.accent} />
               </Squish>
-            </Animated.View>
+            </View>
           )}
 
           <Squish
@@ -585,13 +583,12 @@ export function CalendarScreen({
       </View>
 
       <View style={styles.flex} onLayout={(e) => setBodyHeight(e.nativeEvent.layout.height)}>
-        <Animated.View
+        <View
           key={`${scale}-${settings.weekLayout}-${settings.monthPanel}-${settings.monthCells}`}
-          entering={FadeIn.duration(DUR.quick)}
           style={styles.flex}
         >
           {body()}
-        </Animated.View>
+        </View>
       </View>
 
       <OverlapSheet events={overlap} onClose={() => setOverlap(null)} onOpen={openEvent} />

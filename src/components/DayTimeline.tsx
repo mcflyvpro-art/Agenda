@@ -1,8 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { DUR, stagger } from '../lib/motion';
 import { SCROLL_IN_PAGER } from '../lib/gestures';
 import { fromKey, hhmm, minutesNow, roundToQuarter, shortDay, todayKey } from '../lib/date';
 import { tapLight, tapSoft } from '../lib/haptics';
@@ -206,7 +204,7 @@ export function DayTimeline({
           {allDayFor(days[0]).map((e, i) => {
             const c = swatch(e.color);
             return (
-              <Animated.View key={e.id} entering={FadeInDown.delay(stagger(i)).duration(DUR.quick)}>
+              <View key={e.id}>
                 <Squish
                   onPress={() => {
                     tapSoft();
@@ -226,7 +224,7 @@ export function DayTimeline({
                     {e.title}
                   </Text>
                 </Squish>
-              </Animated.View>
+              </View>
             );
           })}
         </View>
@@ -295,9 +293,8 @@ export function DayTimeline({
                 const top = ((cl.start - startHour * 60) / 60) * HOUR_H;
                 const height = Math.max(46, ((cl.end - cl.start) / 60) * HOUR_H - 4);
                 return (
-                  <Animated.View
+                  <View
                     key={`stack-${key}-${cl.id}`}
-                    entering={FadeInDown.duration(DUR.quick)}
                     style={[
                       styles.eventWrap,
                       { top, left: GUTTER + col * colWidth, width: colWidth - (multi ? 3 : 6), height },
@@ -328,7 +325,7 @@ export function DayTimeline({
                       </View>
                       <Ionicons name="chevron-forward" size={15} color={theme.inkSoft} />
                     </Squish>
-                  </Animated.View>
+                  </View>
                 );
               });
 
@@ -346,9 +343,8 @@ export function DayTimeline({
               const tiny = height < 46 || multi;
               const roomy = height >= 74 && !multi;
               return (
-                <Animated.View
+                <View
                   key={event.id}
-                  entering={FadeInDown.delay(stagger(i)).duration(DUR.quick)}
                   style={[styles.eventWrap, { top, left, width: w - (multi ? 3 : 6), height }]}
                 >
                   <Squish
@@ -401,17 +397,14 @@ export function DayTimeline({
                       )}
                     </View>
                   </Squish>
-                </Animated.View>
+                </View>
                 );
               }),
             ];
           })}
 
           {showNow && (
-            <Animated.View
-              entering={FadeIn.duration(DUR.smooth)}
-              style={[StyleSheet.absoluteFill, styles.nowLayer]}
-            >
+            <View style={[StyleSheet.absoluteFill, styles.nowLayer]}>
               <View style={[styles.nowBadge, { top: nowTop - 8 }]}>
                 <Text style={[styles.nowBadgeText, { color: ui.today }]}>{hhmm(nowMin)}</Text>
               </View>
@@ -436,7 +429,7 @@ export function DayTimeline({
                   },
                 ]}
               />
-            </Animated.View>
+            </View>
           )}
         </View>
       </ScrollView>

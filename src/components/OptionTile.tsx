@@ -1,7 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
 import { tapLight } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
@@ -35,12 +34,11 @@ export function OptionTile({ label, selected, onPress, children }: Props) {
           </Text>
         </View>
         {selected && (
-          <Animated.View
-            entering={ZoomIn.springify().damping(22).stiffness(340).mass(0.5)}
+          <View
             style={[styles.check, { backgroundColor: ui.accent }]}
           >
             <Ionicons name="checkmark" size={11} color="#FFFFFF" />
-          </Animated.View>
+          </View>
         )}
       </View>
     </Squish>

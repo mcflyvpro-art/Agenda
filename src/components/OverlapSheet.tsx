@@ -1,10 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { durationLabel, hhmm } from '../lib/date';
 import { tapSoft } from '../lib/haptics';
-import { DUR, stagger } from '../lib/motion';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
 import type { AgendaEvent } from '../types';
@@ -36,19 +34,11 @@ export function OverlapSheet({ events, onClose, onOpen }: Props) {
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.root}>
-        <Animated.View
-          entering={FadeIn.duration(DUR.quick)}
-          exiting={FadeOut.duration(DUR.instant)}
-          style={[StyleSheet.absoluteFill, styles.backdrop]}
-        >
+        <View style={[StyleSheet.absoluteFill, styles.backdrop]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        </Animated.View>
+        </View>
 
-        <Animated.View
-          entering={FadeInDown.duration(DUR.smooth)}
-          exiting={FadeOut.duration(DUR.instant)}
-          style={styles.card}
-        >
+        <View style={styles.card}>
           <View style={styles.head}>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{list.length} en même temps</Text>
@@ -63,10 +53,7 @@ export function OverlapSheet({ events, onClose, onOpen }: Props) {
             {list.map((e, i) => {
               const c = swatch(e.color);
               return (
-                <Animated.View
-                  key={e.id}
-                  entering={FadeInDown.delay(stagger(i)).duration(DUR.quick)}
-                >
+                <View key={e.id}>
                   <Squish
                     style={[styles.row, { backgroundColor: c.wash }]}
                     onPress={() => {
@@ -93,11 +80,11 @@ export function OverlapSheet({ events, onClose, onOpen }: Props) {
                       </Text>
                     </View>
                   </Squish>
-                </Animated.View>
+                </View>
               );
             })}
           </ScrollView>
-        </Animated.View>
+        </View>
       </View>
     </Modal>
   );

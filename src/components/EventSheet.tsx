@@ -201,7 +201,7 @@ export function EventSheet({
               contentContainerStyle={styles.scroll}
             >
               {/* Titre + emoji */}
-              <Animated.View layout={LinearTransition.springify().damping(28).stiffness(340).mass(0.6)}>
+              <View>
                 <View style={[styles.titleRow, { backgroundColor: c.wash }]}>
                   <Squish
                     onPress={() => toggleSection('emoji')}
@@ -218,16 +218,11 @@ export function EventSheet({
                     style={[styles.titleInput, noOutline, { color: c.deep }]}
                     selectionColor={c.solid}
                     returnKeyType="done"
-                    autoFocus={!d.id}
                   />
                 </View>
 
                 {section === 'emoji' && (
-                  <Animated.View
-                    entering={FadeIn.duration(DUR.quick)}
-                    exiting={FadeOut.duration(DUR.instant)}
-                    style={styles.emojiGrid}
-                  >
+                  <View style={styles.emojiGrid}>
                     {EMOJIS.map((e) => (
                       <Squish
                         key={e}
@@ -246,9 +241,9 @@ export function EventSheet({
                         <Text style={styles.emojiPick}>{e}</Text>
                       </Squish>
                     ))}
-                  </Animated.View>
+                  </View>
                 )}
-              </Animated.View>
+              </View>
 
               {/* Couleurs */}
               <View style={styles.colorRow}>
@@ -281,10 +276,7 @@ export function EventSheet({
               </View>
 
               {/* Quand */}
-              <Animated.View
-                layout={LinearTransition.springify().damping(28).stiffness(340).mass(0.6)}
-                style={styles.card}
-              >
+              <View style={styles.card}>
                 <Row
                   icon="calendar-outline"
                   label="Date"
@@ -294,7 +286,7 @@ export function EventSheet({
                   onPress={() => toggleSection('date')}
                 />
                 {section === 'date' && (
-                  <Animated.View entering={FadeIn.duration(DUR.quick)} exiting={FadeOut.duration(DUR.instant)}>
+                  <View>
                     <View style={styles.pickerHeader}>
                       <Squish
                         style={styles.navBtn}
@@ -328,7 +320,7 @@ export function EventSheet({
                       }}
                     />
                     <View style={styles.divider} />
-                  </Animated.View>
+                  </View>
                 )}
 
                 <Squish
@@ -360,7 +352,7 @@ export function EventSheet({
                 </Squish>
 
                 {!d.allDay && (
-                  <Animated.View entering={FadeIn.duration(DUR.quick)} exiting={FadeOut.duration(DUR.instant)}>
+                  <View>
                     <View style={styles.divider} />
                     <Row
                       icon="play-outline"
@@ -371,10 +363,10 @@ export function EventSheet({
                       onPress={() => toggleSection('start')}
                     />
                     {section === 'start' && (
-                      <Animated.View entering={FadeIn.duration(DUR.quick)} exiting={FadeOut.duration(DUR.instant)}>
+                      <View>
                         <TimeWheel value={d.start} onChange={setStart} />
                         <View style={styles.divider} />
-                      </Animated.View>
+                      </View>
                     )}
                     <Row
                       icon="flag-outline"
@@ -385,13 +377,13 @@ export function EventSheet({
                       onPress={() => toggleSection('end')}
                     />
                     {section === 'end' && (
-                      <Animated.View entering={FadeIn.duration(DUR.quick)} exiting={FadeOut.duration(DUR.instant)}>
+                      <View>
                         <TimeWheel value={d.end} onChange={setEnd} />
-                      </Animated.View>
+                      </View>
                     )}
-                  </Animated.View>
+                  </View>
                 )}
-              </Animated.View>
+              </View>
 
               {/* Détails */}
               <View style={styles.card}>

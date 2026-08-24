@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { LOCK_JS, RESET_CSS, VIEWPORT } from './web-shell.mjs';
 
 /**
  * Rend l'export web installable sur un téléphone.
@@ -101,12 +102,11 @@ self.addEventListener('fetch', (e) => {
 // --- en-tête de la page ---------------------------------------------------
 let html = fs.readFileSync(indexPath, 'utf8');
 
-// viewport-fit=cover : sans lui, l'app ne peut pas mesurer l'encoche ni la
-// barre du bas, et son contenu passe dessous en plein écran.
-html = html.replace(
-  /<meta name="viewport"[^>]*>/,
-  '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />',
-);
+// Zoom, double-tap et rebond coupés, et viewport-fit pour que l'app puisse
+// mesurer l'encoche au lieu de dessiner dessous.
+html = html.replace(/<meta name="viewport"[^>]*>/, `<meta name="viewport" content="${VIEWPORT}" />`);
+// le reset d'Expo laisse la page zoomable et élastique : on le remplace
+html = html.replace(/<style id="expo-reset">[\s\S]*?<\/style>/, `<style id="expo-reset">${RESET_CSS}</style>`);
 
 const head = `
     <link rel="manifest" href="${under('manifest.webmanifest')}" />
@@ -116,7 +116,7 @@ const head = `
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Agenda" />
     <meta name="theme-color" content="#FBEFEA" />
-    <script>
+    <script>${LOCK_JS}
       if ('serviceWorker' in navigator) {
         addEventListener('load', function () {
           navigator.serviceWorker.register('${under('sw.js')}').catch(function () {});

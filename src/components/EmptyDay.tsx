@@ -1,18 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { DUR } from '../lib/motion';
 import { theme } from '../theme';
 
 /** Un vide qui se voit, sans avoir à s'expliquer. */
 export function EmptyDay() {
   return (
-    <Animated.View entering={FadeIn.duration(DUR.quick)} style={styles.wrap}>
+    <View style={styles.wrap}>
       <View style={styles.bubble}>
         <Ionicons name="ellipse-outline" size={22} color={theme.inkFaint} />
       </View>
-    </Animated.View>
+    </View>
   );
 }
 

@@ -150,7 +150,6 @@ export function TodoSheet({ visible, draft, onClose, onSave, onDelete, onSchedul
                 placeholderTextColor={theme.inkFaint}
                 style={[styles.titleInput, noOutline]}
                 selectionColor={ui.accent}
-                autoFocus={!d.id}
                 returnKeyType="done"
                 multiline
               />

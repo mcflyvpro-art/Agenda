@@ -161,7 +161,7 @@ export function SettingsSheet({ visible, onClose }: Props) {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scroll}
           >
-            <Animated.View entering={FadeIn.duration(DUR.quick)}>
+            <View>
               {tab === 'views' && (
                 <>
                   <Section title="Mois">
@@ -379,7 +379,7 @@ export function SettingsSheet({ visible, onClose }: Props) {
               )}
 
               <View style={{ height: 28 }} />
-            </Animated.View>
+            </View>
           </ScrollView>
         </Animated.View>
       </View>

@@ -1,8 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import { StyleSheet, View } from 'react-native';
 import { tapMedium } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import { Squish } from './Squish';
@@ -12,10 +11,7 @@ type Props = { onPress: () => void; onLongPress?: () => void; bottom: number };
 export function AddButton({ onPress, onLongPress, bottom }: Props) {
   const { ui } = useSettings();
   return (
-    <Animated.View
-      entering={FadeInUp.delay(120).springify().damping(24).stiffness(320).mass(0.6)}
-      style={[styles.wrap, { bottom }]}
-    >
+    <View style={[styles.wrap, { bottom }]}>
       <Squish
         scaleTo={0.94}
         dimTo={1}
@@ -43,7 +39,7 @@ export function AddButton({ onPress, onLongPress, bottom }: Props) {
           <Ionicons name="add" size={30} color="#FFFFFF" />
         </LinearGradient>
       </Squish>
-    </Animated.View>
+    </View>
   );
 }
 

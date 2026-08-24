@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { LOCK_JS, RESET_CSS } from './web-shell.mjs';
 
 /**
  * Assemble l'app en un seul fichier HTML autonome.
@@ -55,20 +56,9 @@ if (js.includes(closer)) fail('le bundle contient une balise de fermeture de scr
 
 const html = `<title>Agenda</title>
 <script>
-/* Sans cette balise, un navigateur mobile suppose un écran de bureau et
-   réduit toute l'app. L'hébergeur en pose une, mais la page doit tenir
-   debout seule — un fichier ouvert directement doit s'afficher juste. */
-(function () {
-  var m = document.querySelector('meta[name="viewport"]');
-  if (!m) { m = document.createElement('meta'); m.setAttribute('name', 'viewport'); document.head.appendChild(m); }
-  m.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
-})();
+${LOCK_JS}
 ${closer}>
-<style id="expo-reset">
-  html, body { height: 100%; }
-  body { overflow: hidden; margin: 0; background: #FBEFEA; }
-  #root { display: flex; height: 100%; flex: 1; }
-</style>
+<style id="expo-reset">${RESET_CSS}</style>
 <div id="root"></div>
 <noscript>You need to enable JavaScript to run this app.</noscript>
 <script>

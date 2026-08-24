@@ -1,7 +1,5 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { DUR, stagger } from '../lib/motion';
 import { theme } from '../theme';
 import type { Todo } from '../types';
 import { SwipeRow } from './SwipeRow';
@@ -30,11 +28,7 @@ export function TodoCard({
   compact,
 }: Props) {
   return (
-    <Animated.View
-      entering={FadeIn.delay(stagger(index)).duration(DUR.quick)}
-      exiting={FadeOut.duration(DUR.instant)}
-      style={styles.slot}
-    >
+    <View style={styles.slot}>
       <SwipeRow
         onRight={() => onToggle(todo.id)}
         onLeft={() => onRemove(todo.id)}
@@ -62,7 +56,7 @@ export function TodoCard({
           )}
         </View>
       </SwipeRow>
-    </Animated.View>
+    </View>
   );
 }
 

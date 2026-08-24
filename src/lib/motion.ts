@@ -36,11 +36,3 @@ export const SPRING = {
   /** retour à la position de repos après un glissement */
   settle: { damping: 30, stiffness: 380, mass: 0.7 },
 } as const;
-
-/**
- * Cascade d'entrée d'une liste : un décalage court, plafonné tôt.
- * Au-delà de quelques éléments, tout arrive ensemble — sinon le bas de
- * la liste traîne et l'écran paraît lent.
- */
-export const stagger = (index: number, step = 22, cap = 5) =>
-  Math.min(index, cap) * step;

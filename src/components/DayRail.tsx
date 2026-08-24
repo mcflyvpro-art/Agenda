@@ -1,8 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { DUR, stagger } from '../lib/motion';
 import { SCROLL_IN_PAGER } from '../lib/gestures';
 import { durationLabel, hhmm, minutesNow, todayKey } from '../lib/date';
 import { tapLight, tapSoft } from '../lib/haptics';
@@ -62,7 +60,7 @@ export function DayRail({ dateKey, events, onCreateAt, onOpen, onToggle, bottomI
       {allDay.map((e, i) => {
         const c = swatch(e.color);
         return (
-          <Animated.View key={e.id} entering={FadeInDown.delay(stagger(i)).duration(DUR.quick)}>
+          <View key={e.id}>
             <Squish
               onPress={() => {
                 tapSoft();
@@ -76,7 +74,7 @@ export function DayRail({ dateKey, events, onCreateAt, onOpen, onToggle, bottomI
               </Text>
               <Ionicons name="sunny" size={14} color={c.deep} />
             </Squish>
-          </Animated.View>
+          </View>
         );
       })}
 
@@ -109,11 +107,7 @@ export function DayRail({ dateKey, events, onCreateAt, onOpen, onToggle, bottomI
         const running = isToday && now >= e.start && now < e.end;
         const past = isToday && now >= e.end;
         return (
-          <Animated.View
-            key={e.id}
-            entering={FadeInDown.delay(stagger(i)).duration(DUR.quick)}
-            style={styles.row}
-          >
+          <View key={e.id} style={styles.row}>
             <View style={styles.timeCol}>
               <Text style={[styles.timeStart, past && { color: theme.inkFaint }]}>
                 {hhmm(e.start)}
@@ -173,7 +167,7 @@ export function DayRail({ dateKey, events, onCreateAt, onOpen, onToggle, bottomI
                 </Text>
               )}
             </Squish>
-          </Animated.View>
+          </View>
         );
       })}
     </ScrollView>

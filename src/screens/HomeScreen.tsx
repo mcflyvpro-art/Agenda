@@ -3,8 +3,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { DUR } from '../lib/motion';
 import { DayBar } from '../components/DayBar';
 import { DayRing } from '../components/DayRing';
 import { EventCard } from '../components/EventCard';
@@ -153,7 +151,7 @@ export function HomeScreen({
         </Squish>
       </View>
 
-      <Animated.View entering={FadeInDown.duration(DUR.smooth)} style={styles.block}>
+      <View style={styles.block}>
         {/*
           Le bloc "ouvrir l'agenda" (anneau + tuiles) et la barre du jour ont
           chacun leur propre zone tactile : elles ne doivent jamais s'imbriquer
@@ -188,11 +186,11 @@ export function HomeScreen({
 
           <DayBar events={all} onPressEvent={onOpenEvent} dark />
         </View>
-      </Animated.View>
+      </View>
 
       <View style={styles.block}>
         {next && nextColor ? (
-          <Animated.View entering={FadeInDown.delay(40).duration(DUR.quick)}>
+          <View >
             <Squish
               style={[styles.next, { backgroundColor: nextColor.wash }]}
               onPress={() => {
@@ -217,9 +215,9 @@ export function HomeScreen({
                 </View>
               </View>
             </Squish>
-          </Animated.View>
+          </View>
         ) : (
-          <Animated.View entering={FadeIn.duration(DUR.quick)}>
+          <View >
             <Squish
               style={styles.quiet}
               onPress={() => {
@@ -231,7 +229,7 @@ export function HomeScreen({
                 <Ionicons name="add" size={26} color="#FFFFFF" />
               </View>
             </Squish>
-          </Animated.View>
+          </View>
         )}
       </View>
 

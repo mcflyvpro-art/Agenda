@@ -1,6 +1,5 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
 import { fromKey, isSameDay, shortDay, toKey, weekOf } from '../lib/date';
 import { tapLight, tapMedium } from '../lib/haptics';
 import { theme } from '../theme';
@@ -53,9 +52,8 @@ export function WeekStrip({ selectedKey, byDay, onSelect, onLongSelect }: Props)
             </Text>
             <View style={styles.bubbleWrap}>
               {selected && (
-                <Animated.View
+                <View
                   key={key}
-                  entering={ZoomIn.springify().damping(22).stiffness(340).mass(0.5)}
                   style={[
                     styles.bubble,
                     { backgroundColor: isToday ? ui.today : theme.ink },

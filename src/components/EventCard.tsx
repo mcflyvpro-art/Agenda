@@ -1,8 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { DUR, stagger } from '../lib/motion';
 import { durationLabel, hhmm } from '../lib/date';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
@@ -25,11 +23,7 @@ export function EventCard({ event, onPress, onToggle, onRemove, index = 0 }: Pro
   const full = settings.detail === 'full';
 
   return (
-    <Animated.View
-      entering={FadeIn.delay(stagger(index)).duration(DUR.quick)}
-      exiting={FadeOut.duration(DUR.instant)}
-      style={styles.slot}
-    >
+    <View style={styles.slot}>
       <SwipeRow
         onRight={() => onToggle(event.id)}
         onLeft={() => onRemove(event.id)}
@@ -100,7 +94,7 @@ export function EventCard({ event, onPress, onToggle, onRemove, index = 0 }: Pro
           </View>
         </View>
       </SwipeRow>
-    </Animated.View>
+    </View>
   );
 }
 
