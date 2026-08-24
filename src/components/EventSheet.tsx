@@ -470,6 +470,13 @@ function Row({
       <View style={[styles.chip, active && { backgroundColor: `${accent}1A` }]}>
         <Text style={[styles.chipText, active && { color: accent }]}>{value}</Text>
       </View>
+      {/*
+        Pendant le réglage, la ligne devient le bouton qui referme : sans ce
+        repère on ne sait pas où valider. Ce n'est qu'une icône — c'est la
+        ligne entière qui reçoit le tap, un bouton dans un bouton n'étant
+        pas fiable sur le web.
+      */}
+      {active && <Ionicons name="checkmark-circle" size={21} color={accent} />}
     </Squish>
   );
 }
