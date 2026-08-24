@@ -49,11 +49,22 @@ export function isPagerGestureActive() {
 }
 
 /**
- * Pager horizontal maison. Le scroll natif à pagination peut « rouler »
- * sur plusieurs pages d'un coup lors d'un balayage rapide ou ample, selon
- * la plateforme (Android, web) — ici c'est impossible par construction :
- * le glissement est borné à une largeur de page, et chaque geste ne peut
- * jamais faire avancer ou reculer que d'un seul cran.
+ * Pager horizontal maison.
+ *
+ * Chaque page est posée à sa place absolue — la page `i` est toujours à
+ * `i × largeur` — et c'est le rail entier qui coulisse devant. Rien ne se
+ * repositionne quand l'index change : les pages déjà montées ne bougent
+ * pas d'un pixel, seules celles des bords apparaissent ou disparaissent,
+ * hors écran.
+ *
+ * C'est ce qui supprime le clignotement. Avec des pages placées les unes
+ * par rapport à l'autre, la fin du glissement devait remettre la position
+ * à zéro sur le fil d'animation puis prévenir React : entre les deux, une
+ * image entière montrait encore la veille. Ici les deux informations ne
+ * peuvent plus se contredire, puisqu'une seule pilote l'affichage.
+ *
+ * Le glissement est par ailleurs borné à une largeur de page : un balayage,
+ * même violent, ne peut jamais faire défiler plusieurs jours d'un coup.
  */
 export function Pager({
   count,
@@ -65,14 +76,22 @@ export function Pager({
   swipeable = true,
   style,
 }: Props) {
-  const dragX = useSharedValue(0);
+  // position du rail : au repos, exactement `-index × largeur`
+  const trackX = useSharedValue(-index * width);
   const startX = useSharedValue(0);
   const busy = useSharedValue(false);
 
-  // un changement d'index venu d'ailleurs (bouton, sélection, création…) : on se recentre net
+  /*
+    Un index venu d'ailleurs (bouton « aujourd'hui », sélection d'un jour,
+    création…) demande un recalage net. À l'inverse, l'index qui arrive
+    juste après un balayage correspond déjà à la position atteinte : on n'y
+    touche pas, sans quoi on réécrirait la même valeur pour rien.
+  */
   useEffect(() => {
-    dragX.value = 0;
-  }, [index]);
+    const target = -index * width;
+    if (Math.abs(trackX.value - target) > 0.5) trackX.value = target;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, width]);
 
   const hasPrev = index > 0;
   const hasNext = index < count - 1;
@@ -82,82 +101,67 @@ export function Pager({
     .activeOffsetX([-10, 10])
     .failOffsetY([-16, 16])
     .onStart(() => {
-      startX.value = dragX.value;
+      startX.value = trackX.value;
       runOnJS(setPagerGestureActive)(true);
     })
     .onUpdate((e) => {
       if (busy.value) return;
-      const raw = startX.value + e.translationX;
-      const min = hasNext ? -width : 0;
-      const max = hasPrev ? width : 0;
-      dragX.value = Math.min(max, Math.max(min, raw));
+      const base = -index * width;
+      // jamais plus d'une page de part et d'autre, et rien au-delà des bords
+      const min = hasNext ? base - width : base;
+      const max = hasPrev ? base + width : base;
+      trackX.value = Math.min(max, Math.max(min, startX.value + e.translationX));
     })
     .onEnd((e) => {
       // le tap fantôme survient juste après le relâchement : on laisse un
-      // court sursis après la fin de l'animation avant de rouvrir le geste
-      // aux zones tactiles sous-jacentes.
+      // court sursis avant de rouvrir le geste aux zones tactiles dessous
       runOnJS(clearGestureActiveSoon)(300);
       if (busy.value) return;
-      const goNext = hasNext && (dragX.value < -SWIPE_DISTANCE || e.velocityX < -SWIPE_VELOCITY);
-      const goPrev =
-        !goNext && hasPrev && (dragX.value > SWIPE_DISTANCE || e.velocityX > SWIPE_VELOCITY);
 
-      if (goNext) {
-        busy.value = true;
-        dragX.value = withTiming(-width, { duration: DUR.quick, easing: EASE_OUT }, (done) => {
-          if (done) {
-            dragX.value = 0;
-            busy.value = false;
-            runOnJS(onIndexChange)(index + 1);
-          }
-        });
-      } else if (goPrev) {
-        busy.value = true;
-        dragX.value = withTiming(width, { duration: DUR.quick, easing: EASE_OUT }, (done) => {
-          if (done) {
-            dragX.value = 0;
-            busy.value = false;
-            runOnJS(onIndexChange)(index - 1);
-          }
-        });
-      } else {
-        dragX.value = withSpring(0, SPRING.settle);
+      const base = -index * width;
+      const moved = trackX.value - base;
+      const goNext = hasNext && (moved < -SWIPE_DISTANCE || e.velocityX < -SWIPE_VELOCITY);
+      const goPrev =
+        !goNext && hasPrev && (moved > SWIPE_DISTANCE || e.velocityX > SWIPE_VELOCITY);
+      const target = goNext ? index + 1 : goPrev ? index - 1 : index;
+
+      if (target === index) {
+        // rien n'est validé : on revient se poser sur la page courante
+        trackX.value = withSpring(base, SPRING.settle);
+        return;
       }
+
+      busy.value = true;
+      trackX.value = withTiming(
+        -target * width,
+        { duration: DUR.quick, easing: EASE_OUT },
+        (done) => {
+          if (done) {
+            busy.value = false;
+            runOnJS(onIndexChange)(target);
+          }
+        },
+      );
     });
 
-  const prevStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -width + dragX.value }],
-  }));
-  const curStyle = useAnimatedStyle(() => ({ transform: [{ translateX: dragX.value }] }));
-  const nextStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: width + dragX.value }],
-  }));
+  const trackStyle = useAnimatedStyle(() => ({ transform: [{ translateX: trackX.value }] }));
 
   const slotSize = pageHeight ? { width, height: pageHeight } : { width, height: '100%' as const };
 
+  const pages = [];
+  for (let i = index - 1; i <= index + 1; i++) {
+    if (i < 0 || i >= count) continue;
+    pages.push(
+      <View key={i} style={[styles.slot, slotSize, { left: i * width }]}>
+        {renderPage(i)}
+      </View>,
+    );
+  }
+
   return (
-    // touchAction="pan-y" (web) : par défaut, un GestureDetector coupe tout
-    // défilement natif dans toute sa sous-arborescence — même celui d'un
-    // ScrollView vertical bien à l'intérieur d'une page. En autorisant
-    // explicitement le pan vertical natif, on laisse le navigateur défiler
-    // normalement (y compris quand le doigt part d'un bouton) tout en
-    // réservant le mouvement horizontal à ce geste, pour le changement de
-    // page.
     <GestureDetector gesture={pan} touchAction="pan-y">
       <View style={[styles.clip, pageHeight ? { height: pageHeight } : { height: '100%' }, style]}>
-        {hasPrev && (
-          <Animated.View style={[styles.slot, slotSize, prevStyle]}>
-            {renderPage(index - 1)}
-          </Animated.View>
-        )}
-        <Animated.View style={[styles.slot, slotSize, curStyle]}>
-          {renderPage(index)}
-        </Animated.View>
-        {hasNext && (
-          <Animated.View style={[styles.slot, slotSize, nextStyle]}>
-            {renderPage(index + 1)}
-          </Animated.View>
-        )}
+        <Animated.View style={[styles.track, trackStyle]}>{pages}</Animated.View>
       </View>
     </GestureDetector>
   );
@@ -165,5 +169,8 @@ export function Pager({
 
 const styles = StyleSheet.create({
   clip: { overflow: 'hidden', width: '100%' },
-  slot: { position: 'absolute', top: 0, left: 0 },
+  // le rail n'a pas de dimensions propres : il ne sert qu'à porter le
+  // déplacement commun des pages, posées en absolu à leur place
+  track: { position: 'absolute', top: 0, left: 0, height: '100%' },
+  slot: { position: 'absolute', top: 0 },
 });

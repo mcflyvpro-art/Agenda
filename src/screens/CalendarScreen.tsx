@@ -15,6 +15,7 @@ import { Pager } from '../components/Pager';
 import { PlannerList } from '../components/PlannerList';
 import { SegmentedRow } from '../components/SegmentedRow';
 import { Squish } from '../components/Squish';
+import { WeekBoard } from '../components/WeekBoard';
 import { WeekStrip } from '../components/WeekStrip';
 import { YearGrid } from '../components/YearGrid';
 import {
@@ -102,6 +103,10 @@ export function CalendarScreen({
   const [dayHeight, setDayHeight] = useState(0);
   /** la grappe d'événements simultanés qu'on est en train de déplier */
   const [overlap, setOverlap] = useState<AgendaEvent[] | null>(null);
+  /** l'emploi du temps de la semaine, à plat et en grand */
+  const [boardOpen, setBoardOpen] = useState(false);
+  /** semaine montrée par l'emploi du temps, indépendante de la vue */
+  const [boardWeek, setBoardWeek] = useState<Date | null>(null);
 
   // « masquer ce qui est fait » se règle ici, une fois pour toutes les vues
   const visibleByDay = useMemo(() => {
@@ -170,10 +175,22 @@ export function CalendarScreen({
     setYearIndex(YEAR_SPAN + (d.getFullYear() - anchorYear));
   }, [selectedKey, anchorMonth, anchorYear]);
 
+  /**
+   * Revenir à aujourd'hui, depuis n'importe quelle vue.
+   *
+   * Remettre les trois repères, et pas seulement le jour : en vue Mois ou
+   * Année, balayer déplace la page sans toucher au jour choisi. Redemander
+   * ce même jour ne changeait alors rien pour React, et le bouton restait
+   * sans effet une fois sur deux.
+   */
   const goToday = useCallback(() => {
     tapSoft();
-    selectDay(todayKey());
-  }, [selectDay]);
+    const key = todayKey();
+    const d = fromKey(key);
+    setMonthIndex(MONTH_SPAN + differenceInCalendarMonths(startOfMonth(d), anchorMonth));
+    setYearIndex(YEAR_SPAN + (d.getFullYear() - anchorYear));
+    selectDay(key);
+  }, [selectDay, anchorMonth, anchorYear]);
 
   const setScale = useCallback(
     (next: Scale) => {
@@ -211,6 +228,17 @@ export function CalendarScreen({
     },
     [scale, settings.weekLayout, selectedKey, selectDay],
   );
+
+  /* L'emploi du temps s'ouvre sur la semaine du jour choisi, puis suit ses
+     propres flèches sans déranger la vue qu'on avait derrière. */
+  const boardStart = useMemo(
+    () => startOfWeek(selectedDate, { weekStartsOn: settings.weekStart }),
+    [selectedKey, settings.weekStart],
+  );
+  const boardDays = useMemo(() => {
+    const from = boardWeek ?? boardStart;
+    return Array.from({ length: 7 }, (_, i) => toKey(addDays(from, i)));
+  }, [boardWeek, boardStart]);
 
   const createAt = onCreateAt;
   const openEvent = onOpenEvent;
@@ -553,16 +581,33 @@ export function CalendarScreen({
             )}
           </View>
 
-          {!isOnToday && (
-            <View >
-              <Squish
-                style={[styles.iconBtn, { backgroundColor: `${ui.accent}1F` }]}
-                onPress={goToday}
-                scaleTo={0.93}
-              >
-                <Ionicons name="locate" size={18} color={ui.accent} />
-              </Squish>
-            </View>
+          {/*
+            Deux boutons pour une seule place : « revenir à aujourd'hui »
+            n'existe que lorsqu'on s'en est éloigné, et l'emploi du temps
+            prend sa place le reste du temps.
+          */}
+          {isOnToday ? (
+            <Squish
+              style={[styles.iconBtn, { backgroundColor: `${ui.accent}1F` }]}
+              onPress={() => {
+                tapSoft();
+                // on rouvre toujours sur la semaine en cours, pas sur celle
+                // où les flèches nous avaient laissés la fois d'avant
+                setBoardWeek(null);
+                setBoardOpen(true);
+              }}
+              scaleTo={0.93}
+            >
+              <Ionicons name="grid" size={17} color={ui.accent} />
+            </Squish>
+          ) : (
+            <Squish
+              style={[styles.iconBtn, { backgroundColor: `${ui.accent}1F` }]}
+              onPress={goToday}
+              scaleTo={0.93}
+            >
+              <Ionicons name="locate" size={18} color={ui.accent} />
+            </Squish>
           )}
 
           <Squish
@@ -592,6 +637,15 @@ export function CalendarScreen({
       </View>
 
       <OverlapSheet events={overlap} onClose={() => setOverlap(null)} onOpen={openEvent} />
+
+      <WeekBoard
+        visible={boardOpen}
+        days={boardDays}
+        eventsOn={visibleOn}
+        onPrev={() => setBoardWeek((w) => addDays(w ?? boardStart, -7))}
+        onNext={() => setBoardWeek((w) => addDays(w ?? boardStart, 7))}
+        onClose={() => setBoardOpen(false)}
+      />
     </View>
   );
 }

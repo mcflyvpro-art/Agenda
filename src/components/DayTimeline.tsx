@@ -106,6 +106,8 @@ export function DayTimeline({
 
   const trackWidth = width - GUTTER - 14;
   const colWidth = trackWidth / days.length;
+  /* colonnes trop étroites pour un mot : on n'y met que couleur et emoji */
+  const narrow = colWidth < 72;
   const contentH = (endHour - startHour) * HOUR_H + 16;
 
   useEffect(() => {
@@ -271,18 +273,20 @@ export function DayTimeline({
             const { positioned, clusters } = layoutDay(eventsOn(key));
 
             /*
-              Au-delà de deux colonnes, chaque carte tomberait sous la
-              soixantaine de pixels : plus rien ne se lit. On replie alors la
-              grappe entière en une seule carte, qui dit combien ils sont et
-              s'ouvre d'un tap sur la liste dépliée.
+              On replie une grappe quand ses colonnes deviendraient trop
+              étroites pour se lire — mais seulement s'il y a bien plusieurs
+              colonnes. Un rendez-vous seul n'est jamais un chevauchement :
+              sans cette condition, la vue 7 jours repliait chaque événement
+              derrière une carte « 1 en même temps », dans une colonne où
+              son texte ne tenait pas.
             */
+            const columnsOf = (id: number) =>
+              positioned.filter((p) => p.cluster === id).reduce((m, p) => Math.max(m, p.cols), 1);
             const folded = new Set(
               clusters
                 .filter((cl) => {
-                  const width = colWidth / Math.min(cl.events.length, positioned
-                    .filter((p) => p.cluster === cl.id)
-                    .reduce((m, p) => Math.max(m, p.cols), 1));
-                  return width < 104;
+                  const cols = columnsOf(cl.id);
+                  return cols > 1 && colWidth / cols < 104;
                 })
                 .map((cl) => cl.id),
             );
@@ -315,15 +319,23 @@ export function DayTimeline({
                           />
                         ))}
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text numberOfLines={1} style={styles.stackTitle}>
-                          {cl.events.length} en même temps
-                        </Text>
-                        <Text style={styles.stackTime}>
-                          {hhmm(cl.start)} – {hhmm(cl.end)}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={15} color={theme.inkSoft} />
+                      {/* en colonne étroite, le compte seul : la phrase et
+                          l'heure n'y tiendraient pas */}
+                      {narrow ? (
+                        <Text style={styles.stackCount}>{cl.events.length}</Text>
+                      ) : (
+                        <>
+                          <View style={{ flex: 1 }}>
+                            <Text numberOfLines={1} style={styles.stackTitle}>
+                              {cl.events.length} en même temps
+                            </Text>
+                            <Text style={styles.stackTime}>
+                              {hhmm(cl.start)} – {hhmm(cl.end)}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={15} color={theme.inkSoft} />
+                        </>
+                      )}
                     </Squish>
                   </View>
                 );
@@ -368,34 +380,46 @@ export function DayTimeline({
                     ]}
                   >
                     <View style={[styles.eventBar, { backgroundColor: c.solid }]} />
-                    <View style={styles.eventBody}>
-                      <View style={styles.eventTitleRow}>
-                        {settings.showEmoji && !multi && (
-                          <Text style={styles.eventEmoji}>{event.emoji}</Text>
+                    {narrow ? (
+                      /* Sept colonnes sur la largeur d'un téléphone : un titre
+                         n'y tient pas, il se casse en syllabes et devient
+                         illisible. Restent la couleur et l'emoji, qui suffisent
+                         à reconnaître un rendez-vous d'un coup d'œil. */
+                      <View style={styles.eventGlyph}>
+                        {settings.showEmoji && (
+                          <Text style={styles.eventGlyphText}>{event.emoji}</Text>
                         )}
-                        <Text
-                          numberOfLines={tiny ? 1 : 2}
-                          style={[
-                            styles.eventTitle,
-                            multi && { fontSize: 11.5 },
-                            { color: c.deep },
-                            event.done && { textDecorationLine: 'line-through' },
-                          ]}
-                        >
-                          {event.title}
-                        </Text>
                       </View>
-                      {!tiny && settings.detail !== 'minimal' && (
-                        <Text style={[styles.eventTime, { color: c.deep }]}>
-                          {hhmm(event.start)} – {hhmm(event.end)}
-                        </Text>
-                      )}
-                      {roomy && settings.detail === 'full' && !!event.location && (
-                        <Text numberOfLines={1} style={[styles.eventTime, { color: c.deep }]}>
-                          {event.location}
-                        </Text>
-                      )}
-                    </View>
+                    ) : (
+                      <View style={styles.eventBody}>
+                        <View style={styles.eventTitleRow}>
+                          {settings.showEmoji && !multi && (
+                            <Text style={styles.eventEmoji}>{event.emoji}</Text>
+                          )}
+                          <Text
+                            numberOfLines={tiny ? 1 : 2}
+                            style={[
+                              styles.eventTitle,
+                              multi && { fontSize: 11.5 },
+                              { color: c.deep },
+                              event.done && { textDecorationLine: 'line-through' },
+                            ]}
+                          >
+                            {event.title}
+                          </Text>
+                        </View>
+                        {!tiny && settings.detail !== 'minimal' && (
+                          <Text style={[styles.eventTime, { color: c.deep }]}>
+                            {hhmm(event.start)} – {hhmm(event.end)}
+                          </Text>
+                        )}
+                        {roomy && settings.detail === 'full' && !!event.location && (
+                          <Text numberOfLines={1} style={[styles.eventTime, { color: c.deep }]}>
+                            {event.location}
+                          </Text>
+                        )}
+                      </View>
+                    )}
                   </Squish>
                 </View>
                 );
@@ -486,11 +510,11 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
+    gap: 6,
     borderRadius: theme.radius.md,
     backgroundColor: '#FFFFFF',
-    paddingLeft: 10,
-    paddingRight: 10,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: theme.hairlineStrong,
     overflow: 'hidden',
@@ -498,6 +522,12 @@ const styles = StyleSheet.create({
   stackBars: { flexDirection: 'row', gap: 2.5 },
   stackBar: { width: 3.5, height: 22, borderRadius: 2 },
   stackTitle: { fontSize: 13.5, fontWeight: '800', color: theme.ink, letterSpacing: -0.25 },
+  stackCount: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.ink,
+    fontVariant: ['tabular-nums'],
+  },
   stackTime: {
     fontSize: 11.5,
     fontWeight: '600',
@@ -514,6 +544,8 @@ const styles = StyleSheet.create({
   },
   eventBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
   eventBody: { flex: 1, justifyContent: 'center' },
+  eventGlyph: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  eventGlyphText: { fontSize: 15 },
   eventTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   eventEmoji: { fontSize: 13 },
   eventTitle: { flex: 1, fontSize: 13.5, fontWeight: '700', letterSpacing: -0.2 },
