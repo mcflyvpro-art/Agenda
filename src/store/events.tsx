@@ -11,7 +11,7 @@ import React, {
 import { uid } from '../lib/id';
 import { addDays, toKey } from '../lib/date';
 import { deviceIdSync } from '../sync/device';
-import { alive, collectGarbage } from '../sync/merge';
+import { alive, collectGarbage, mergeById } from '../sync/merge';
 import type { Syncable } from '../sync/types';
 import type { AgendaEvent, Draft } from '../types';
 
@@ -31,6 +31,8 @@ type Store = {
   save: (draft: Draft) => AgendaEvent;
   remove: (id: string) => void;
   toggleDone: (id: string) => void;
+  /** fusionne des lignes venues du serveur ; « dernier écrit gagne », fiche par fiche */
+  mergeRemote: (rows: Syncable<AgendaEvent>[]) => void;
 };
 
 const EventsContext = createContext<Store | null>(null);
@@ -177,9 +179,13 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const mergeRemote = useCallback((remote: Syncable<AgendaEvent>[]) => {
+    setRows((prev) => sortEvents(mergeById(prev, remote)));
+  }, []);
+
   const value = useMemo<Store>(
-    () => ({ ready, events, rows, byDay, eventsOn, save, remove, toggleDone }),
-    [ready, events, rows, byDay, eventsOn, save, remove, toggleDone],
+    () => ({ ready, events, rows, byDay, eventsOn, save, remove, toggleDone, mergeRemote }),
+    [ready, events, rows, byDay, eventsOn, save, remove, toggleDone, mergeRemote],
   );
 
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>;

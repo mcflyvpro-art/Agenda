@@ -22,6 +22,7 @@ import { DUR, EASE_OUT, SPRING } from '../lib/motion';
 import { notifySuccess, tapLight, tapSoft } from '../lib/haptics';
 import { useHasFinePointer, writeOverride } from '../lib/platform';
 import { useSettings } from '../store/settings';
+import { SyncSection } from './SyncSection';
 import type { DayLayout, MonthCells, MonthPanel, WeekLayout } from '../store/settings';
 import { theme } from '../theme';
 import { OptionTile } from './OptionTile';
@@ -381,6 +382,10 @@ export function SettingsSheet({ visible, onClose }: Props) {
                   </Section>
                 </>
               )}
+
+              <Section title="Synchronisation">
+                <SyncSection />
+              </Section>
 
               {/*
                 Visible seulement sur un vrai ordinateur — jamais sur un

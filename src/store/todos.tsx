@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 import { uid } from '../lib/id';
 import { deviceIdSync } from '../sync/device';
-import { alive, collectGarbage } from '../sync/merge';
+import { alive, collectGarbage, mergeById } from '../sync/merge';
 import type { Syncable } from '../sync/types';
 import type { Todo, TodoDraft } from '../types';
 
@@ -32,6 +32,8 @@ type Store = {
   remove: (id: string) => void;
   toggleDone: (id: string) => void;
   clearDone: () => void;
+  /** fusionne des lignes venues du serveur ; « dernier écrit gagne », fiche par fiche */
+  mergeRemote: (rows: Syncable<Todo>[]) => void;
 };
 
 const TodosContext = createContext<Store | null>(null);
@@ -163,9 +165,13 @@ export function TodosProvider({ children }: { children: React.ReactNode }) {
     [todos],
   );
 
+  const mergeRemote = useCallback((remote: Syncable<Todo>[]) => {
+    setRows((prev) => mergeById(prev, remote));
+  }, []);
+
   const value = useMemo<Store>(
-    () => ({ todos, rows, pending, done, add, save, remove, toggleDone, clearDone }),
-    [todos, rows, pending, done, add, save, remove, toggleDone, clearDone],
+    () => ({ todos, rows, pending, done, add, save, remove, toggleDone, clearDone, mergeRemote }),
+    [todos, rows, pending, done, add, save, remove, toggleDone, clearDone, mergeRemote],
   );
 
   return <TodosContext.Provider value={value}>{children}</TodosContext.Provider>;

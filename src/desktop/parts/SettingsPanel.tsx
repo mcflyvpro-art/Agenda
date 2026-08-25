@@ -1,13 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { deviceLabel } from '../../sync/device';
-import { getAdapter } from '../../sync/adapter';
 import { useSettings } from '../../store/settings';
 import { writeOverride } from '../../lib/platform';
 import { HOUR_MAX, HOUR_MIN, useDeskPrefs } from '../store/prefs';
 import { dt } from '../theme';
 import { IconButton, Kbd, Press } from './Press';
+import { SyncPanel } from './SyncPanel';
 
 type Props = { visible: boolean; onClose: () => void };
 
@@ -38,8 +37,6 @@ export function SettingsPanel({ visible, onClose }: Props) {
   const { prefs, update, reset } = useDeskPrefs();
   const { ui } = useSettings();
   if (!visible) return null;
-
-  const adapter = getAdapter();
 
   return (
     <View style={styles.overlay}>
@@ -107,19 +104,7 @@ export function SettingsPanel({ visible, onClose }: Props) {
           </Group>
 
           <Group title="Synchronisation">
-            <View style={styles.syncRow}>
-              <View style={[styles.syncDot, { backgroundColor: dt.inkFaint }]} />
-              <Text style={styles.syncText}>
-                {adapter.kind === 'local'
-                  ? `Local seulement · ${deviceLabel()}`
-                  : `Connecté · ${adapter.kind}`}
-              </Text>
-            </View>
-            <Text style={styles.note}>
-              Les données restent sur cet appareil. Tout est déjà enregistré au format
-              qu’attend la synchronisation : le jour où la base est branchée, rien
-              n’est à reprendre.
-            </Text>
+            <SyncPanel />
           </Group>
 
           <Group title="Interface">
@@ -279,10 +264,6 @@ const styles = StyleSheet.create({
   shortcut: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   shortcutText: { fontSize: 12, fontWeight: '600', color: dt.inkSoft },
 
-  syncRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10 },
-  syncDot: { width: 7, height: 7, borderRadius: 4 },
-  syncText: { fontSize: 12.5, fontWeight: '700', color: dt.ink },
-  note: { fontSize: 11.5, lineHeight: 16, color: dt.inkFaint, fontWeight: '500', paddingHorizontal: 10, paddingBottom: 8 },
 
   linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 9, height: 34, paddingHorizontal: 10, borderRadius: dt.radius.sm },
   linkText: { fontSize: 12.5, fontWeight: '600', color: dt.inkSoft },

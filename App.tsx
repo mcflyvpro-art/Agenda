@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -11,7 +11,11 @@ import { RootScreen } from './src/screens/RootScreen';
 import { EventsProvider } from './src/store/events';
 import { TodosProvider } from './src/store/todos';
 import { SettingsProvider, useSettings } from './src/store/settings';
+import { setAdapter, localOnly } from './src/sync/adapter';
+import { useAuthSession } from './src/sync/auth';
 import { primeDeviceId } from './src/sync/device';
+import { useCloudSync } from './src/sync/engine';
+import { supabaseAdapter } from './src/sync/supabase';
 
 // l'identité de l'appareil est lue une fois, avant la première écriture
 primeDeviceId();
@@ -48,6 +52,18 @@ export default function App() {
  */
 function Shell() {
   const desktop = useIsDesktop();
+  /*
+    Se connecter n'est jamais un préalable : sans session, l'app tourne
+    entièrement en local, exactement comme avant. La connexion, quand
+    elle a lieu (depuis les réglages), ne fait que brancher le second
+    dos — rien d'autre ne change dans le reste de l'application.
+  */
+  const session = useAuthSession();
+  useEffect(() => {
+    setAdapter(session ? supabaseAdapter : localOnly);
+  }, [session]);
+  useCloudSync(!!session);
+
   return desktop ? <DesktopRoot /> : <Backdrop />;
 }
 
