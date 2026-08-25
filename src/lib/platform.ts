@@ -47,25 +47,41 @@ function hasFinePointer(): boolean {
 /** Vrai quand il faut monter l'interface bureau plutôt que l'interface mobile. */
 export function useIsDesktop(): boolean {
   const { width } = useWindowDimensions();
-  const [fine, setFine] = useState(hasFinePointer);
+  const fine = useHasFinePointer();
   const [choice, setChoice] = useState<ShellChoice>(readOverride);
 
   useEffect(() => {
-    if (!IS_WEB || typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(pointer: fine)');
-    const onChange = () => setFine(mq.matches);
-    mq.addEventListener('change', onChange);
+    if (!IS_WEB || typeof window === 'undefined') return;
     // un autre onglet peut avoir changé le choix manuel
     const onStorage = () => setChoice(readOverride());
     window.addEventListener('storage', onStorage);
-    return () => {
-      mq.removeEventListener('change', onChange);
-      window.removeEventListener('storage', onStorage);
-    };
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   if (!IS_WEB) return false;
   if (choice === 'mobile') return false;
   if (choice === 'desktop') return true;
   return fine && width >= DESKTOP_MIN_WIDTH;
+}
+
+/**
+ * Un vrai pointeur, sans condition de largeur.
+ *
+ * Sert à l'échappatoire manuelle vers la version PC : une fenêtre de
+ * navigateur peut être plus étroite que `DESKTOP_MIN_WIDTH` sans que la
+ * personne devant soit pour autant sur un téléphone. Le pointeur, lui,
+ * ne ment jamais — un doigt reste toujours grossier, souris et trackpad
+ * toujours fins — donc un bouton basé dessus ne peut pas apparaître sur
+ * un vrai iPhone/Android, seulement sur un ordinateur bloqué en petit.
+ */
+export function useHasFinePointer(): boolean {
+  const [fine, setFine] = useState(hasFinePointer);
+  useEffect(() => {
+    if (!IS_WEB || typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(pointer: fine)');
+    const onChange = () => setFine(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return fine;
 }

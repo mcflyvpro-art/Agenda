@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { DUR, EASE_OUT, SPRING } from '../lib/motion';
 import { notifySuccess, tapLight, tapSoft } from '../lib/haptics';
+import { useHasFinePointer, writeOverride } from '../lib/platform';
 import { useSettings } from '../store/settings';
 import type { DayLayout, MonthCells, MonthPanel, WeekLayout } from '../store/settings';
 import { theme } from '../theme';
@@ -62,6 +63,9 @@ export function SettingsSheet({ visible, onClose }: Props) {
   const { height } = useWindowDimensions();
   const { settings, update, reset, swatch, ui } = useSettings();
   const [tab, setTab] = useState<Tab>('views');
+  // un vrai pointeur (souris, trackpad) : jamais vrai sur un téléphone,
+  // donc ce bouton ne peut apparaître que sur un ordinateur
+  const isRealComputer = useHasFinePointer();
 
   const ty = useSharedValue(height);
   const backdrop = useSharedValue(0);
@@ -376,6 +380,36 @@ export function SettingsSheet({ visible, onClose }: Props) {
                     </View>
                   </Section>
                 </>
+              )}
+
+              {/*
+                Visible seulement sur un vrai ordinateur — jamais sur un
+                téléphone ou une tablette, où le pointeur reste toujours
+                grossier. Sert d'échappatoire quand la détection
+                automatique (largeur de fenêtre) reste bloquée en mobile
+                alors qu'on est bel et bien sur un PC.
+              */}
+              {isRealComputer && (
+                <Section title="Interface">
+                  <View style={styles.card}>
+                    <Squish
+                      style={styles.switchRow}
+                      scaleTo={0.985}
+                      dimTo={1}
+                      onPress={() => {
+                        tapSoft();
+                        writeOverride('desktop');
+                        if (typeof location !== 'undefined') location.reload();
+                      }}
+                    >
+                      <Ionicons name="desktop-outline" size={17} color={ui.accent} />
+                      <Text style={[styles.switchLabel, { color: theme.ink }]}>
+                        Passer à la version PC
+                      </Text>
+                      <Ionicons name="chevron-forward" size={17} color={theme.inkFaint} />
+                    </Squish>
+                  </View>
+                </Section>
               )}
 
               <View style={{ height: 28 }} />
