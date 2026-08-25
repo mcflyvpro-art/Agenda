@@ -37,6 +37,34 @@ export const RESET_CSS = `
   }
   * { -webkit-tap-highlight-color: transparent; }
   #root { display: flex; height: 100%; flex: 1; }
+
+  /*
+    Sur ordinateur, deux réglages de plus — et seulement là, d'où la
+    requête sur le type de pointeur : elle ne peut pas atteindre un
+    téléphone, dont le pointeur est grossier.
+
+    « overscroll-behavior-x » coupe le retour en arrière que macOS
+    déclenche sur un balayage horizontal à deux doigts. Sans lui, changer
+    de semaine au trackpad ferait sortir de l'application une fois sur
+    deux — le code JavaScript appelle bien preventDefault(), mais la
+    ceinture et les bretelles valent mieux ici, l'échec étant total.
+
+    « user-select » empêche le tracé d'un créneau dans la grille de
+    surligner au passage tous les libellés d'heures. Les champs de saisie
+    sont remis d'aplomb juste après : on y sélectionne évidemment.
+  */
+  @media (pointer: fine) {
+    html, body { overscroll-behavior-x: none; }
+    body {
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: auto;
+    }
+    input, textarea, [contenteditable] {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+  }
 `;
 
 /** À insérer tel quel dans un bloc de script. */

@@ -9,6 +9,9 @@ import React, {
   useState,
 } from 'react';
 import { uid } from '../lib/id';
+import { deviceIdSync } from '../sync/device';
+import { alive, collectGarbage } from '../sync/merge';
+import type { Syncable } from '../sync/types';
 import type { Todo, TodoDraft } from '../types';
 
 const STORAGE_KEY = 'agenda.todos.v2';
@@ -19,6 +22,8 @@ const SEED_ON_FIRST_LAUNCH = true;
 
 type Store = {
   todos: Todo[];
+  /** tout, pierres tombales comprises — c'est ce que la synchronisation pousse */
+  rows: Syncable<Todo>[];
   /** celles qui restent à faire, les plus récentes en premier */
   pending: Todo[];
   done: Todo[];
@@ -31,15 +36,18 @@ type Store = {
 
 const TodosContext = createContext<Store | null>(null);
 
-function seed(): Todo[] {
+function seed(): Syncable<Todo>[] {
   const now = Date.now();
-  const mk = (title: string, i: number): Todo => ({
+  const mk = (title: string, i: number): Syncable<Todo> => ({
     id: uid(),
     title,
     notes: '',
     done: false,
     estimate: 60,
     createdAt: now - i * 1000,
+    updatedAt: now - i * 1000,
+    deletedAt: null,
+    origin: deviceIdSync(),
   });
   return [
     mk('Réviser le DS de maths', 0),
@@ -48,8 +56,18 @@ function seed(): Todo[] {
   ];
 }
 
+/** Complète une idée enregistrée avant que la synchronisation n'existe. */
+function adopt(t: Partial<Syncable<Todo>>): Syncable<Todo> {
+  return {
+    ...(t as Todo),
+    updatedAt: t.updatedAt ?? t.createdAt ?? 0,
+    deletedAt: t.deletedAt ?? null,
+    origin: t.origin ?? '',
+  };
+}
+
 export function TodosProvider({ children }: { children: React.ReactNode }) {
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [rows, setRows] = useState<Syncable<Todo>[]>([]);
   const hydrated = useRef(false);
 
   useEffect(() => {
@@ -60,10 +78,10 @@ export function TodosProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(SEED_KEY),
         ]);
         if (raw) {
-          const parsed = JSON.parse(raw) as Todo[];
-          if (Array.isArray(parsed)) setTodos(parsed);
+          const parsed = JSON.parse(raw) as Partial<Syncable<Todo>>[];
+          if (Array.isArray(parsed)) setRows(parsed.map(adopt));
         } else if (!seeded && SEED_ON_FIRST_LAUNCH) {
-          setTodos(seed());
+          setRows(seed());
           AsyncStorage.setItem(SEED_KEY, '1').catch(() => {});
         }
       } catch {
@@ -76,17 +94,24 @@ export function TodosProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated.current) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(todos)).catch(() => {});
-  }, [todos]);
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(collectGarbage(rows))).catch(() => {});
+  }, [rows]);
+
+  /* Ce que voit l'application : tout sauf ce qui a été supprimé. */
+  const todos = useMemo(() => alive(rows), [rows]);
 
   const save = useCallback((draft: TodoDraft) => {
-    const complete: Todo = {
+    const now = Date.now();
+    const complete: Syncable<Todo> = {
       ...draft,
       title: draft.title.trim() || 'Sans titre',
       id: draft.id ?? uid(),
-      createdAt: draft.createdAt ?? Date.now(),
+      createdAt: draft.createdAt ?? now,
+      updatedAt: now,
+      deletedAt: null,
+      origin: deviceIdSync(),
     };
-    setTodos((prev) => {
+    setRows((prev) => {
       const idx = prev.findIndex((t) => t.id === complete.id);
       return idx >= 0 ? prev.map((t) => (t.id === complete.id ? complete : t)) : [complete, ...prev];
     });
@@ -99,16 +124,34 @@ export function TodosProvider({ children }: { children: React.ReactNode }) {
     [save],
   );
 
+  /* Comme pour les événements : une suppression est une pierre tombale. */
   const remove = useCallback((id: string) => {
-    setTodos((prev) => prev.filter((t) => t.id !== id));
+    const now = Date.now();
+    setRows((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, deletedAt: now, updatedAt: now, origin: deviceIdSync() } : t,
+      ),
+    );
   }, []);
 
   const toggleDone = useCallback((id: string) => {
-    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+    const now = Date.now();
+    setRows((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, done: !t.done, updatedAt: now, origin: deviceIdSync() } : t,
+      ),
+    );
   }, []);
 
   const clearDone = useCallback(() => {
-    setTodos((prev) => prev.filter((t) => !t.done));
+    const now = Date.now();
+    setRows((prev) =>
+      prev.map((t) =>
+        t.done && t.deletedAt == null
+          ? { ...t, deletedAt: now, updatedAt: now, origin: deviceIdSync() }
+          : t,
+      ),
+    );
   }, []);
 
   const pending = useMemo(
@@ -121,8 +164,8 @@ export function TodosProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo<Store>(
-    () => ({ todos, pending, done, add, save, remove, toggleDone, clearDone }),
-    [todos, pending, done, add, save, remove, toggleDone, clearDone],
+    () => ({ todos, rows, pending, done, add, save, remove, toggleDone, clearDone }),
+    [todos, rows, pending, done, add, save, remove, toggleDone, clearDone],
   );
 
   return <TodosContext.Provider value={value}>{children}</TodosContext.Provider>;

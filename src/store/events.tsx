@@ -10,6 +10,9 @@ import React, {
 } from 'react';
 import { uid } from '../lib/id';
 import { addDays, toKey } from '../lib/date';
+import { deviceIdSync } from '../sync/device';
+import { alive, collectGarbage } from '../sync/merge';
+import type { Syncable } from '../sync/types';
 import type { AgendaEvent, Draft } from '../types';
 
 const STORAGE_KEY = 'agenda.events.v1';
@@ -21,6 +24,8 @@ const SEED_ON_FIRST_LAUNCH = true;
 type Store = {
   ready: boolean;
   events: AgendaEvent[];
+  /** tout, pierres tombales comprises — c'est ce que la synchronisation pousse */
+  rows: Syncable<AgendaEvent>[];
   byDay: Record<string, AgendaEvent[]>;
   eventsOn: (key: string) => AgendaEvent[];
   save: (draft: Draft) => AgendaEvent;
@@ -30,7 +35,7 @@ type Store = {
 
 const EventsContext = createContext<Store | null>(null);
 
-function sortEvents(list: AgendaEvent[]): AgendaEvent[] {
+function sortEvents<T extends AgendaEvent>(list: T[]): T[] {
   return [...list].sort((a, b) => {
     if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
     if (a.start !== b.start) return a.start - b.start;
@@ -38,13 +43,13 @@ function sortEvents(list: AgendaEvent[]): AgendaEvent[] {
   });
 }
 
-function seed(): AgendaEvent[] {
+function seed(): Syncable<AgendaEvent>[] {
   const t = new Date();
   const today = toKey(t);
   const tomorrow = toKey(addDays(t, 1));
   const later = toKey(addDays(t, 3));
   const now = Date.now();
-  const mk = (e: Partial<AgendaEvent>, i: number): AgendaEvent => ({
+  const mk = (e: Partial<AgendaEvent>, i: number): Syncable<AgendaEvent> => ({
     id: uid(),
     title: '',
     emoji: '✨',
@@ -57,6 +62,9 @@ function seed(): AgendaEvent[] {
     notes: '',
     done: false,
     createdAt: now + i,
+    updatedAt: now + i,
+    deletedAt: null,
+    origin: deviceIdSync(),
     ...e,
   });
   return [
@@ -70,8 +78,18 @@ function seed(): AgendaEvent[] {
   ];
 }
 
+/** Complète une fiche enregistrée avant que la synchronisation n'existe. */
+function adopt(e: Partial<Syncable<AgendaEvent>>): Syncable<AgendaEvent> {
+  return {
+    ...(e as AgendaEvent),
+    updatedAt: e.updatedAt ?? e.createdAt ?? 0,
+    deletedAt: e.deletedAt ?? null,
+    origin: e.origin ?? '',
+  };
+}
+
 export function EventsProvider({ children }: { children: React.ReactNode }) {
-  const [events, setEvents] = useState<AgendaEvent[]>([]);
+  const [rows, setRows] = useState<Syncable<AgendaEvent>[]>([]);
   const [ready, setReady] = useState(false);
   const hydrated = useRef(false);
 
@@ -83,10 +101,10 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(SEED_KEY),
         ]);
         if (raw) {
-          const parsed = JSON.parse(raw) as AgendaEvent[];
-          if (Array.isArray(parsed)) setEvents(sortEvents(parsed));
+          const parsed = JSON.parse(raw) as Partial<Syncable<AgendaEvent>>[];
+          if (Array.isArray(parsed)) setRows(sortEvents(parsed.map(adopt)));
         } else if (!seeded && SEED_ON_FIRST_LAUNCH) {
-          setEvents(sortEvents(seed()));
+          setRows(sortEvents(seed()));
           AsyncStorage.setItem(SEED_KEY, '1').catch(() => {});
         }
       } catch {
@@ -100,8 +118,11 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated.current) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(events)).catch(() => {});
-  }, [events]);
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(collectGarbage(rows))).catch(() => {});
+  }, [rows]);
+
+  /* Ce que voit l'application : tout sauf ce qui a été supprimé. */
+  const events = useMemo(() => alive(rows), [rows]);
 
   const byDay = useMemo(() => {
     const map: Record<string, AgendaEvent[]> = {};
@@ -113,31 +134,52 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
   const eventsOn = useCallback((key: string) => byDay[key] ?? [], [byDay]);
 
   const save = useCallback((draft: Draft) => {
-    const complete: AgendaEvent = {
+    const now = Date.now();
+    const complete: Syncable<AgendaEvent> = {
       ...draft,
       title: draft.title.trim() || 'Sans titre',
       id: draft.id ?? uid(),
-      createdAt: draft.createdAt ?? Date.now(),
+      createdAt: draft.createdAt ?? now,
+      updatedAt: now,
+      deletedAt: null,
+      origin: deviceIdSync(),
     };
-    setEvents((prev) => {
+    setRows((prev) => {
       const idx = prev.findIndex((e) => e.id === complete.id);
-      const next = idx >= 0 ? prev.map((e) => (e.id === complete.id ? complete : e)) : [...prev, complete];
+      const next =
+        idx >= 0 ? prev.map((e) => (e.id === complete.id ? complete : e)) : [...prev, complete];
       return sortEvents(next);
     });
     return complete;
   }, []);
 
+  /*
+    Supprimer, c'est poser une pierre tombale, pas retirer du tableau : une
+    ligne effacée pour de bon ne pourrait pas se propager à l'autre appareil,
+    qui ne la voyant plus la renverrait. Rien ne change à l'écran — la vue ne
+    lit que `events`, d'où les pierres tombales sont absentes.
+  */
   const remove = useCallback((id: string) => {
-    setEvents((prev) => prev.filter((e) => e.id !== id));
+    const now = Date.now();
+    setRows((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, deletedAt: now, updatedAt: now, origin: deviceIdSync() } : e,
+      ),
+    );
   }, []);
 
   const toggleDone = useCallback((id: string) => {
-    setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, done: !e.done } : e)));
+    const now = Date.now();
+    setRows((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, done: !e.done, updatedAt: now, origin: deviceIdSync() } : e,
+      ),
+    );
   }, []);
 
   const value = useMemo<Store>(
-    () => ({ ready, events, byDay, eventsOn, save, remove, toggleDone }),
-    [ready, events, byDay, eventsOn, save, remove, toggleDone],
+    () => ({ ready, events, rows, byDay, eventsOn, save, remove, toggleDone }),
+    [ready, events, rows, byDay, eventsOn, save, remove, toggleDone],
   );
 
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>;
