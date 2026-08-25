@@ -14,11 +14,10 @@ import { alive, collectGarbage, mergeById } from '../sync/merge';
 import type { Syncable } from '../sync/types';
 import type { Todo, TodoDraft } from '../types';
 
-const STORAGE_KEY = 'agenda.todos.v2';
-const SEED_KEY = 'agenda.todos.seeded.v2';
-
-/** Quelques exemples au tout premier lancement, pour que la boîte ne soit pas vide. */
-const SEED_ON_FIRST_LAUNCH = true;
+// version bumpée : les anciens exemples de démonstration, déjà enregistrés
+// dans le stockage des appareils existants, sont ainsi ignorés eux aussi —
+// l'app démarre désormais toujours vierge
+const STORAGE_KEY = 'agenda.todos.v3';
 
 type Store = {
   todos: Todo[];
@@ -38,26 +37,6 @@ type Store = {
 
 const TodosContext = createContext<Store | null>(null);
 
-function seed(): Syncable<Todo>[] {
-  const now = Date.now();
-  const mk = (title: string, i: number): Syncable<Todo> => ({
-    id: uid(),
-    title,
-    notes: '',
-    done: false,
-    estimate: 60,
-    createdAt: now - i * 1000,
-    updatedAt: now - i * 1000,
-    deletedAt: null,
-    origin: deviceIdSync(),
-  });
-  return [
-    mk('Réviser le DS de maths', 0),
-    mk('Appeler le dentiste', 1),
-    mk('Trier les photos de cet été', 2),
-  ];
-}
-
 /** Complète une idée enregistrée avant que la synchronisation n'existe. */
 function adopt(t: Partial<Syncable<Todo>>): Syncable<Todo> {
   return {
@@ -75,16 +54,10 @@ export function TodosProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const [raw, seeded] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEY),
-          AsyncStorage.getItem(SEED_KEY),
-        ]);
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<Syncable<Todo>>[];
           if (Array.isArray(parsed)) setRows(parsed.map(adopt));
-        } else if (!seeded && SEED_ON_FIRST_LAUNCH) {
-          setRows(seed());
-          AsyncStorage.setItem(SEED_KEY, '1').catch(() => {});
         }
       } catch {
         // rien de lisible : on démarre à vide

@@ -9,17 +9,15 @@ import React, {
   useState,
 } from 'react';
 import { uid } from '../lib/id';
-import { addDays, toKey } from '../lib/date';
 import { deviceIdSync } from '../sync/device';
 import { alive, collectGarbage, mergeById } from '../sync/merge';
 import type { Syncable } from '../sync/types';
 import type { AgendaEvent, Draft } from '../types';
 
-const STORAGE_KEY = 'agenda.events.v1';
-const SEED_KEY = 'agenda.seeded.v1';
-
-/** Quelques événements d'exemple au tout premier lancement. Passer à false pour démarrer à vide. */
-const SEED_ON_FIRST_LAUNCH = true;
+// version bumpée : les anciens exemples de démonstration, déjà enregistrés
+// dans le stockage des appareils existants, sont ainsi ignorés eux aussi —
+// l'app démarre désormais toujours vierge
+const STORAGE_KEY = 'agenda.events.v2';
 
 type Store = {
   ready: boolean;
@@ -45,41 +43,6 @@ function sortEvents<T extends AgendaEvent>(list: T[]): T[] {
   });
 }
 
-function seed(): Syncable<AgendaEvent>[] {
-  const t = new Date();
-  const today = toKey(t);
-  const tomorrow = toKey(addDays(t, 1));
-  const later = toKey(addDays(t, 3));
-  const now = Date.now();
-  const mk = (e: Partial<AgendaEvent>, i: number): Syncable<AgendaEvent> => ({
-    id: uid(),
-    title: '',
-    emoji: '✨',
-    color: 'lavender',
-    date: today,
-    start: 9 * 60,
-    end: 10 * 60,
-    allDay: false,
-    location: '',
-    notes: '',
-    done: false,
-    createdAt: now + i,
-    updatedAt: now + i,
-    deletedAt: null,
-    origin: deviceIdSync(),
-    ...e,
-  });
-  return [
-    mk({ title: 'Café & to-do', emoji: '☕️', color: 'peach', start: 8 * 60 + 30, end: 9 * 60 }, 0),
-    mk({ title: 'Point équipe', emoji: '💼', color: 'sky', start: 10 * 60, end: 11 * 60, location: 'Visio' }, 1),
-    mk({ title: 'Déjeuner avec Léa', emoji: '🍽️', color: 'blush', start: 12 * 60 + 30, end: 14 * 60 }, 2),
-    mk({ title: 'Yoga', emoji: '🧘‍♀️', color: 'mint', start: 18 * 60 + 30, end: 19 * 60 + 30 }, 3),
-    mk({ title: 'Rendez-vous dentiste', emoji: '🩺', color: 'sage', date: tomorrow, start: 11 * 60, end: 11 * 60 + 45 }, 4),
-    mk({ title: 'Ciné', emoji: '🎬', color: 'lilac', date: tomorrow, start: 20 * 60, end: 22 * 60 + 15 }, 5),
-    mk({ title: 'Week-end à la mer', emoji: '🌊', color: 'butter', date: later, allDay: true, start: 0, end: 1440 }, 6),
-  ];
-}
-
 /** Complète une fiche enregistrée avant que la synchronisation n'existe. */
 function adopt(e: Partial<Syncable<AgendaEvent>>): Syncable<AgendaEvent> {
   return {
@@ -98,16 +61,10 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const [raw, seeded] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEY),
-          AsyncStorage.getItem(SEED_KEY),
-        ]);
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<Syncable<AgendaEvent>>[];
           if (Array.isArray(parsed)) setRows(sortEvents(parsed.map(adopt)));
-        } else if (!seeded && SEED_ON_FIRST_LAUNCH) {
-          setRows(sortEvents(seed()));
-          AsyncStorage.setItem(SEED_KEY, '1').catch(() => {});
         }
       } catch {
         // premier lancement / storage illisible : on démarre à vide
