@@ -6,7 +6,7 @@ import { fromKey, hhmm, minutesNow, roundToQuarter, shortDay, todayKey } from '.
 import { tapLight, tapSoft } from '../lib/haptics';
 import { layoutDay } from '../lib/layout';
 import { isPagerGestureActive } from './Pager';
-import { HOUR_HEIGHT, useSettings, type DayRange } from '../store/settings';
+import { HOUR_HEIGHT, useSettings } from '../store/settings';
 import { theme } from '../theme';
 import type { AgendaEvent } from '../types';
 import { Squish } from './Squish';
@@ -24,51 +24,6 @@ type Props = {
   onShowOverlap: (events: AgendaEvent[]) => void;
   bottomInset?: number;
 };
-
-/** Journée creuse : on montre les heures où il se passe habituellement quelque chose. */
-const EMPTY_DAY: [number, number] = [8, 22];
-
-/**
- * Bornes horaires de la grille.
- *
- * En automatique, la timeline se cale sur la journée : elle commence une
- * heure avant le premier rendez-vous et finit une heure après le dernier —
- * juste ce qu'il faut d'air autour. Sans rien au programme, elle retombe
- * sur 8 h – 22 h plutôt que d'afficher une nuit entière vide. Sur mesure,
- * ce sont les bornes choisies dans les réglages, quitte à ce qu'un
- * événement déborde : on les élargit alors pour ne rien cacher.
- */
-function visibleRange(
-  events: AgendaEvent[],
-  mode: DayRange,
-  custom: [number, number],
-  /** heure courante à garder dans le cadre quand on regarde aujourd'hui */
-  nowHour: number | null,
-): [number, number] {
-  if (mode === 'full') return [0, 24];
-
-  const timed = events.filter((e) => !e.allDay);
-  /* la barre de l'heure courante doit rester dans la grille : sans ça elle
-     se dessine dans le vide, sous la dernière ligne */
-  const withNow = ([from, to]: [number, number]): [number, number] =>
-    nowHour === null
-      ? [from, to]
-      : [Math.max(0, Math.min(from, nowHour)), Math.min(24, Math.max(to, nowHour + 1))];
-
-  if (mode === 'custom') {
-    const [from, to] = custom;
-    if (timed.length === 0) return withNow([from, to]);
-    // un rendez-vous hors plage resterait invisible : on ouvre juste assez
-    const earliest = Math.floor(Math.min(...timed.map((e) => e.start)) / 60);
-    const latest = Math.ceil(Math.max(...timed.map((e) => e.end)) / 60);
-    return withNow([Math.max(0, Math.min(from, earliest)), Math.min(24, Math.max(to, latest))]);
-  }
-
-  if (timed.length === 0) return withNow(EMPTY_DAY);
-  const earliest = Math.floor(Math.min(...timed.map((e) => e.start)) / 60);
-  const latest = Math.ceil(Math.max(...timed.map((e) => e.end)) / 60);
-  return withNow([Math.max(0, earliest - 1), Math.min(24, latest + 1)]);
-}
 
 export function DayTimeline({
   days,
@@ -91,12 +46,9 @@ export function DayTimeline({
   const todayIndex = days.indexOf(todayKey());
   const isToday = todayIndex >= 0;
   const nowMin = minutesNow();
-  const [startHour, endHour] = visibleRange(
-    allEvents,
-    settings.dayRange,
-    [settings.dayStart, settings.dayEnd],
-    settings.showNowLine && isToday ? Math.floor(nowMin / 60) : null,
-  );
+  /** la grille couvre toujours la journée entière : plus de plage à régler */
+  const startHour = 0;
+  const endHour = 24;
   const hours = useMemo(
     () => Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i),
     [startHour, endHour],

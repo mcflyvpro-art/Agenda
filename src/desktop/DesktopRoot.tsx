@@ -364,8 +364,8 @@ export function DesktopRoot() {
           <TimeGrid
             days={[selectedKey]}
             eventsOn={visibleOn}
-            startHour={prefs.dayStart}
-            endHour={prefs.dayEnd}
+            startHour={0}
+            endHour={24}
             hourHeight={prefs.hourHeight}
             selectedId={draft?.id ?? null}
             onSelectEvent={openEvent}
@@ -378,8 +378,8 @@ export function DesktopRoot() {
           <TimeGrid
             days={weekDays}
             eventsOn={visibleOn}
-            startHour={prefs.dayStart}
-            endHour={prefs.dayEnd}
+            startHour={0}
+            endHour={24}
             hourHeight={prefs.hourHeight}
             selectedId={draft?.id ?? null}
             onSelectEvent={openEvent}

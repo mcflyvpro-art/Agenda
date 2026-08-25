@@ -73,18 +73,6 @@ export function SettingsPanel({ visible, onClose }: Props) {
 
           <Group title="Grille horaire">
             <Stepper
-              label="Première heure"
-              value={`${prefs.dayStart}:00`}
-              onLess={() => update({ dayStart: Math.max(0, prefs.dayStart - 1) })}
-              onMore={() => update({ dayStart: Math.min(prefs.dayEnd - 1, prefs.dayStart + 1) })}
-            />
-            <Stepper
-              label="Dernière heure"
-              value={`${prefs.dayEnd}:00`}
-              onLess={() => update({ dayEnd: Math.max(prefs.dayStart + 1, prefs.dayEnd - 1) })}
-              onMore={() => update({ dayEnd: Math.min(24, prefs.dayEnd + 1) })}
-            />
-            <Stepper
               label="Hauteur d’une heure"
               value={`${prefs.hourHeight} px`}
               onLess={() => update({ hourHeight: Math.max(HOUR_MIN, prefs.hourHeight - 8) })}

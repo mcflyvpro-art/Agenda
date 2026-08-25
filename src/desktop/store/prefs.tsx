@@ -14,9 +14,6 @@ export type DeskPrefs = {
   /** le panneau de droite, qu'on peut replier pour gagner de la largeur */
   inspector: boolean;
   sidebar: boolean;
-  /** amplitude horaire des grilles : heures pleines */
-  dayStart: number;
-  dayEnd: number;
   /** hauteur d'une heure, en pixels — le « zoom » des grilles horaires */
   hourHeight: number;
   showWeekends: boolean;
@@ -29,8 +26,6 @@ export const DESK_DEFAULTS: DeskPrefs = {
   scale: 'week',
   inspector: true,
   sidebar: true,
-  dayStart: 7,
-  dayEnd: 23,
   hourHeight: 52,
   showWeekends: true,
   showWeekNumbers: true,

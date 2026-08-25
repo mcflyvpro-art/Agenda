@@ -21,11 +21,6 @@ export type MonthCells = 'dots' | 'tint' | 'bars' | 'titles' | 'heat';
 export type MonthPanel = 'none' | 'day';
 export type WeekLayout = 'grid7' | 'grid3' | 'list';
 export type DayLayout = 'timeline' | 'rail' | 'list';
-/**
- * L'amplitude horaire de la timeline : la journée entière, calée sur les
- * événements du jour, ou bornée à la main.
- */
-export type DayRange = 'full' | 'auto' | 'custom';
 export type Density = 'compact' | 'normal' | 'roomy';
 export type Detail = 'minimal' | 'normal' | 'full';
 
@@ -35,10 +30,6 @@ export type Settings = {
   monthPanel: MonthPanel;
   weekLayout: WeekLayout;
   dayLayout: DayLayout;
-  dayRange: DayRange;
-  /** bornes de la timeline en mode « sur mesure », en heures pleines */
-  dayStart: number;
-  dayEnd: number;
   density: Density;
   detail: Detail;
   autoColor: boolean;
@@ -56,9 +47,6 @@ export const DEFAULTS: Settings = {
   monthPanel: 'day',
   weekLayout: 'grid7',
   dayLayout: 'timeline',
-  dayRange: 'auto',
-  dayStart: 8,
-  dayEnd: 22,
   density: 'normal',
   detail: 'normal',
   autoColor: true,
@@ -85,12 +73,6 @@ export const CELL_HEIGHT: Record<MonthCells, number> = {
   titles: 82,
   heat: 50,
 };
-
-/** Une heure pleine lisible, ou la valeur par défaut si la donnée est douteuse. */
-function clampHour(value: unknown, fallback: number, min: number, max: number): number {
-  const n = Math.round(Number(value));
-  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
-}
 
 export const DENSITY_SCALE: Record<Density, number> = {
   compact: 0.86,
@@ -132,15 +114,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           // enregistrées
           if (merged.monthPanel !== 'day' && merged.monthPanel !== 'none') {
             merged.monthPanel = DEFAULTS.monthPanel;
-          }
-          if (!['full', 'auto', 'custom'].includes(merged.dayRange)) {
-            merged.dayRange = DEFAULTS.dayRange;
-          }
-          merged.dayStart = clampHour(merged.dayStart, DEFAULTS.dayStart, 0, 23);
-          merged.dayEnd = clampHour(merged.dayEnd, DEFAULTS.dayEnd, 1, 24);
-          if (merged.dayEnd <= merged.dayStart) {
-            merged.dayStart = DEFAULTS.dayStart;
-            merged.dayEnd = DEFAULTS.dayEnd;
           }
           setSettings(merged);
         }

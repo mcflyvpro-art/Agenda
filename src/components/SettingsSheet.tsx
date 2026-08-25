@@ -233,54 +233,6 @@ export function SettingsSheet({ visible, onClose }: Props) {
                     </Tiles>
                   </Section>
 
-                  <Section title="Grilles horaires">
-                    <View style={styles.card}>
-                      <Field label="Plage affichée">
-                        <SegmentedRow
-                          value={settings.dayRange}
-                          onChange={(dayRange) => update({ dayRange })}
-                          options={[
-                            { key: 'auto', label: 'Auto' },
-                            { key: 'custom', label: 'Sur mesure' },
-                            { key: 'full', label: '0 – 24 h' },
-                          ]}
-                        />
-                      </Field>
-
-                      {settings.dayRange === 'auto' && (
-                        <Text style={styles.hint}>
-                          La grille commence une heure avant le premier événement et finit une
-                          heure après le dernier. Journée vide : 8 h – 22 h.
-                        </Text>
-                      )}
-
-                      {settings.dayRange === 'custom' && (
-                        <>
-                          <View style={styles.hourRow}>
-                            <HourPicker
-                              label="Début"
-                              value={settings.dayStart}
-                              min={0}
-                              max={settings.dayEnd - 1}
-                              accent={ui.accent}
-                              onChange={(dayStart) => update({ dayStart })}
-                            />
-                            <HourPicker
-                              label="Fin"
-                              value={settings.dayEnd}
-                              min={settings.dayStart + 1}
-                              max={24}
-                              accent={ui.accent}
-                              onChange={(dayEnd) => update({ dayEnd })}
-                            />
-                          </View>
-                          <Text style={styles.hint}>
-                            Un événement en dehors de la plage l'élargit : rien ne reste caché.
-                          </Text>
-                        </>
-                      )}
-                    </View>
-                  </Section>
                 </>
               )}
 
@@ -448,59 +400,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/** Choix d'une heure pleine, un cran à la fois — plus sûr qu'une roulette ici. */
-function HourPicker({
-  label,
-  value,
-  min,
-  max,
-  accent,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  accent: string;
-  onChange: (v: number) => void;
-}) {
-  const step = (d: number) => {
-    const next = Math.max(min, Math.min(max, value + d));
-    if (next === value) return;
-    tapLight();
-    onChange(next);
-  };
-
-  return (
-    <View style={styles.hourCell}>
-      <Text style={styles.hourLabel}>{label}</Text>
-      <View style={styles.hourStepper}>
-        <Squish
-          style={styles.hourBtn}
-          scaleTo={0.88}
-          disabled={value <= min}
-          onPress={() => step(-1)}
-        >
-          <Ionicons
-            name="remove"
-            size={17}
-            color={value <= min ? theme.inkFaint : accent}
-          />
-        </Squish>
-        <Text style={styles.hourValue}>{`${`${value}`.padStart(2, '0')}:00`}</Text>
-        <Squish
-          style={styles.hourBtn}
-          scaleTo={0.88}
-          disabled={value >= max}
-          onPress={() => step(1)}
-        >
-          <Ionicons name="add" size={17} color={value >= max ? theme.inkFaint : accent} />
-        </Squish>
-      </View>
-    </View>
-  );
-}
-
 function SwitchRow({
   icon,
   label,
@@ -582,38 +481,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     letterSpacing: -0.1,
     paddingBottom: 13,
-  },
-  hourRow: { flexDirection: 'row', gap: 10, paddingBottom: 12 },
-  hourCell: { flex: 1, gap: 7 },
-  hourLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.inkFaint,
-    letterSpacing: 0.2,
-    textTransform: 'uppercase',
-  },
-  hourStepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(32,32,43,0.04)',
-    borderRadius: 14,
-    padding: 4,
-  },
-  hourBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  hourValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: theme.ink,
-    letterSpacing: -0.3,
-    fontVariant: ['tabular-nums'],
   },
   divider: { height: 1, backgroundColor: theme.hairline },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13 },
