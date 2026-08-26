@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { LOCK_JS, RESET_CSS, VIEWPORT } from './web-shell.mjs';
@@ -24,8 +25,35 @@ if (!fs.existsSync(indexPath)) {
   process.exit(1);
 }
 
-// --- icône ----------------------------------------------------------------
-fs.copyFileSync('assets/icon.png', path.join(DIST, 'icon.png'));
+/* --- icône ----------------------------------------------------------------
+
+   Le nom du fichier porte une empreinte de son contenu, comme le bundle.
+
+   Sans ça, l'icône s'appelle toujours `icon.png` : iOS la retient au
+   moment où l'app est ajoutée à l'écran d'accueil et ne redemande jamais
+   la même URL, même après un nouveau déploiement. Réinstaller la PWA
+   ramenait donc l'ancienne image indéfiniment. Une empreinte différente
+   à chaque image change l'URL, ce qu'aucun cache ne peut confondre avec
+   la précédente. */
+const stamp = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex').slice(0, 12);
+
+const iconBytes = fs.readFileSync('assets/icon.png');
+const iconFile = `icon.${stamp(iconBytes)}.png`;
+fs.writeFileSync(path.join(DIST, iconFile), iconBytes);
+
+/* Le favicon qu'`expo export` produit est référencé en `/favicon.ico`, à la
+   racine du domaine — or GitHub Pages sert le site depuis `/Agenda/`. Le
+   navigateur allait donc chercher le favicon d'un autre site, et affichait
+   le sien. On le republie sous la base, empreinté lui aussi. */
+const faviconSrc = path.join(DIST, 'favicon.ico');
+const faviconFile = fs.existsSync(faviconSrc)
+  ? (() => {
+      const bytes = fs.readFileSync(faviconSrc);
+      const name = `favicon.${stamp(bytes)}.ico`;
+      fs.writeFileSync(path.join(DIST, name), bytes);
+      return name;
+    })()
+  : null;
 
 // --- manifeste ------------------------------------------------------------
 const manifest = {
@@ -38,7 +66,7 @@ const manifest = {
   background_color: '#FBEFEA',
   theme_color: '#FBEFEA',
   icons: ['any', 'maskable'].map((purpose) => ({
-    src: under('icon.png'),
+    src: under(iconFile),
     sizes: '1024x1024',
     type: 'image/png',
     purpose,
@@ -54,8 +82,9 @@ const bundleDir = path.join(DIST, '_expo/static/js/web');
 const bundle = fs.readdirSync(bundleDir).find((f) => f.endsWith('.js'));
 const version = bundle.replace(/[^a-z0-9]/gi, '').slice(-16);
 
-const shell = [`${BASE}/`, under('index.html'), under('icon.png'), under('manifest.webmanifest'),
-  `${BASE}/_expo/static/js/web/${bundle}`];
+const shell = [`${BASE}/`, under('index.html'), under(iconFile), under('manifest.webmanifest'),
+  `${BASE}/_expo/static/js/web/${bundle}`,
+  ...(faviconFile ? [under(faviconFile)] : [])];
 
 fs.writeFileSync(
   path.join(DIST, 'sw.js'),
@@ -107,10 +136,17 @@ let html = fs.readFileSync(indexPath, 'utf8');
 html = html.replace(/<meta name="viewport"[^>]*>/, `<meta name="viewport" content="${VIEWPORT}" />`);
 // le reset d'Expo laisse la page zoomable et élastique : on le remplace
 html = html.replace(/<style id="expo-reset">[\s\S]*?<\/style>/, `<style id="expo-reset">${RESET_CSS}</style>`);
+// le favicon d'Expo pointe à la racine du domaine, pas sous la base du site
+if (faviconFile) {
+  html = html.replace(
+    /<link rel="icon"[^>]*>/,
+    `<link rel="icon" href="${under(faviconFile)}" />`,
+  );
+}
 
 const head = `
     <link rel="manifest" href="${under('manifest.webmanifest')}" />
-    <link rel="apple-touch-icon" href="${under('icon.png')}" />
+    <link rel="apple-touch-icon" href="${under(iconFile)}" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
