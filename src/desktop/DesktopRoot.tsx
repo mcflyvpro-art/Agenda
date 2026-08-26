@@ -24,7 +24,7 @@ import type { AgendaEvent, Draft, Todo } from '../types';
 import { useKeyboard, type Binding } from './lib/keys';
 import { useWheelNav, useWheelZoom } from './lib/trackpad';
 import { installDesktopStyle, setAccentVar } from './lib/webstyle';
-import { Inspector } from './parts/Inspector';
+import { Inspector, type InspectorPane } from './parts/Inspector';
 import { Appear } from './parts/Motion';
 import { Palette, type Command } from './parts/Palette';
 import { SettingsPanel } from './parts/SettingsPanel';
@@ -79,6 +79,18 @@ export function DesktopRoot() {
 
   const [selectedKey, setSelectedKey] = useState(todayKey());
   const [draft, setDraft] = useState<Draft | null>(null);
+  /**
+   * Ce que le panneau de droite montre : le jour choisi, ou la fiche.
+   *
+   * Sans cet état, une fiche ouverte confisquait le panneau : choisir un
+   * autre jour dans la semaine changeait bien le jour partout ailleurs,
+   * mais la colonne de droite restait sur la fiche, et on ne voyait
+   * jamais ce que le jour qu'on venait de désigner contenait. Fermer la
+   * fiche pour aller voir aurait perdu la saisie en cours ; le panneau
+   * porte donc les deux, et bascule vers ce qu'on vient de demander —
+   * la fiche quand on l'ouvre, le jour quand on en désigne un.
+   */
+  const [pane, setPane] = useState<InspectorPane>('day');
   /** l'idée dont vient la fiche ouverte : elle sortira de la boîte une fois placée */
   const [fromTodo, setFromTodo] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -89,6 +101,12 @@ export function DesktopRoot() {
 
   const day = useMemo(() => fromKey(selectedKey), [selectedKey]);
   const scale = prefs.scale;
+
+  /** Désigner un jour — d'un clic, d'une flèche — c'est demander à le voir. */
+  const pickDay = useCallback((key: string) => {
+    setSelectedKey(key);
+    setPane('day');
+  }, []);
 
   const visibleOn = useCallback(
     (key: string) => {
@@ -103,6 +121,7 @@ export function DesktopRoot() {
 
   const step = useCallback(
     (dir: 1 | -1) => {
+      setPane('day');
       setSelectedKey((key) => {
         const d = fromKey(key);
         if (scale === 'year') return toKey(addMonths(d, 12 * dir));
@@ -114,7 +133,7 @@ export function DesktopRoot() {
     [scale],
   );
 
-  const goToday = useCallback(() => setSelectedKey(todayKey()), []);
+  const goToday = useCallback(() => pickDay(todayKey()), [pickDay]);
 
   /* Le pincement traverse les échelles ; « liste » n'est pas sur ce chemin. */
   const zoom = useCallback(
@@ -171,6 +190,7 @@ export function DesktopRoot() {
     setFromTodo(null);
     setDraft(e);
     setSelectedKey(e.date);
+    setPane('card');
     update({ inspector: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -180,6 +200,7 @@ export function DesktopRoot() {
       setFromTodo(null);
       setSelectedKey(dateKey);
       setDraft(makeDraft(dateKey, start, end));
+      setPane('card');
       update({ inspector: true });
     },
     [makeDraft, update],
@@ -198,6 +219,7 @@ export function DesktopRoot() {
           ...(guess ?? {}),
         }),
       );
+      setPane('card');
       // placer une idée revient à travailler dans le calendrier
       update({ section: 'calendar', inspector: true });
     },
@@ -220,10 +242,15 @@ export function DesktopRoot() {
     setDraft(saved);
   }, [draft, save, fromTodo, removeTodo]);
 
+  const closeCard = useCallback(() => {
+    setDraft(null);
+    setPane('day');
+  }, []);
+
   const drop = useCallback(() => {
     if (draft?.id) remove(draft.id);
-    setDraft(null);
-  }, [draft, remove]);
+    closeCard();
+  }, [draft, remove, closeCard]);
 
   /* ---- titre ---- */
 
@@ -275,7 +302,7 @@ export function DesktopRoot() {
       { key: 'Escape', whileTyping: true, run: () => {
         if (paletteOpen) setPaletteOpen(false);
         else if (settingsOpen) setSettingsOpen(false);
-        else setDraft(null);
+        else closeCard();
       } },
       { key: 'Enter', meta: true, whileTyping: true, run: commit },
       { key: 'k', meta: true, whileTyping: true, run: () => setPaletteOpen(true) },
@@ -297,7 +324,7 @@ export function DesktopRoot() {
       { key: '=', meta: true, run: () => update({ hourHeight: Math.min(HOUR_MAX, prefs.hourHeight + 8) }) },
       { key: '-', meta: true, run: () => update({ hourHeight: Math.max(HOUR_MIN, prefs.hourHeight - 8) }) },
     ];
-  }, [paletteOpen, settingsOpen, commit, update, prefs.inspector, prefs.hourHeight, step, goToday, createAt, selectedKey, draft, drop]);
+  }, [paletteOpen, settingsOpen, commit, closeCard, update, prefs.inspector, prefs.hourHeight, step, goToday, createAt, selectedKey, draft, drop]);
 
   useKeyboard(bindings);
 
@@ -325,7 +352,7 @@ export function DesktopRoot() {
           eventsOn={visibleOn}
           onSelectEvent={openEvent}
           onSelectDay={(k) => {
-            setSelectedKey(k);
+            pickDay(k);
             update({ section: 'calendar', scale: 'day' });
           }}
           onCreate={(k) => createAt(k)}
@@ -345,11 +372,11 @@ export function DesktopRoot() {
             countOn={countOn}
             selectedKey={selectedKey}
             onSelectDay={(k) => {
-              setSelectedKey(k);
+              pickDay(k);
               update({ scale: 'day' });
             }}
             onOpenMonth={(m) => {
-              setSelectedKey(toKey(startOfMonth(m)));
+              pickDay(toKey(startOfMonth(m)));
               update({ scale: 'month' });
             }}
           />
@@ -361,7 +388,7 @@ export function DesktopRoot() {
             eventsOn={visibleOn}
             selectedKey={selectedKey}
             selectedId={draft?.id ?? null}
-            onSelectDay={setSelectedKey}
+            onSelectDay={pickDay}
             onSelectEvent={openEvent}
             onCreate={(k) => createAt(k)}
           />
@@ -373,7 +400,7 @@ export function DesktopRoot() {
             eventsOn={visibleOn}
             selectedId={draft?.id ?? null}
             onSelectEvent={openEvent}
-            onSelectDay={setSelectedKey}
+            onSelectDay={pickDay}
             onCreate={(k) => createAt(k)}
           />
         );
@@ -388,7 +415,8 @@ export function DesktopRoot() {
             selectedId={draft?.id ?? null}
             onSelectEvent={openEvent}
             onCreate={createAt}
-            onSelectDay={setSelectedKey}
+            onPickDay={pickDay}
+            onDrawDay={setSelectedKey}
           />
         );
       default:
@@ -402,7 +430,8 @@ export function DesktopRoot() {
             selectedId={draft?.id ?? null}
             onSelectEvent={openEvent}
             onCreate={createAt}
-            onSelectDay={setSelectedKey}
+            onPickDay={pickDay}
+            onDrawDay={setSelectedKey}
           />
         );
     }
@@ -410,76 +439,86 @@ export function DesktopRoot() {
 
   return (
     <View dataSet={{ dkRoot: '1' }} style={styles.root}>
-      {prefs.sidebar && (
-        <Sidebar
-          section={prefs.section}
-          onSection={(section) => update({ section })}
-          month={startOfMonth(day)}
-          selectedKey={selectedKey}
-          countOn={countOn}
-          onSelectDay={(k) => {
-            setSelectedKey(k);
-            if (prefs.section !== 'calendar') update({ section: 'calendar' });
-          }}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onSchedule={scheduleTodo}
-          onOpenTodo={() => update({ section: 'ideas' })}
-          nextUp={nextUp}
-        />
-      )}
+      {/*
+        Le cadre : c'est lui qui porte la marge et les écarts, pas la
+        racine. Les couches modales sont posées à côté de lui plutôt que
+        dedans, sinon leur voile s'arrêterait au bord de la marge et
+        laisserait un liseré net tout autour de la fenêtre.
+      */}
+      <View style={styles.frame}>
+        {prefs.sidebar && (
+          <Sidebar
+            section={prefs.section}
+            onSection={(section) => update({ section })}
+            month={startOfMonth(day)}
+            selectedKey={selectedKey}
+            countOn={countOn}
+            onSelectDay={(k) => {
+              pickDay(k);
+              if (prefs.section !== 'calendar') update({ section: 'calendar' });
+            }}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onSchedule={scheduleTodo}
+            onOpenTodo={() => update({ section: 'ideas' })}
+            nextUp={nextUp}
+          />
+        )}
 
-      <View style={styles.center}>
-        <Topbar
-          title={title}
-          subtitle={subtitle}
-          scale={scale}
-          onScale={(s) => update({ section: 'calendar', scale: s })}
-          onPrev={() => step(-1)}
-          onNext={() => step(1)}
-          onToday={goToday}
-          onSearch={() => setPaletteOpen(true)}
-          onCreate={() => createAt(selectedKey)}
-          inspector={prefs.inspector}
-          onToggleInspector={() => update({ inspector: !prefs.inspector })}
-          showScales={prefs.section === 'calendar'}
-          showNav={prefs.section === 'calendar'}
-        />
+        <View style={styles.center}>
+          <Topbar
+            title={title}
+            subtitle={subtitle}
+            scale={scale}
+            onScale={(s) => update({ section: 'calendar', scale: s })}
+            onPrev={() => step(-1)}
+            onNext={() => step(1)}
+            onToday={goToday}
+            onSearch={() => setPaletteOpen(true)}
+            onCreate={() => createAt(selectedKey)}
+            inspector={prefs.inspector}
+            onToggleInspector={() => update({ inspector: !prefs.inspector })}
+            showScales={prefs.section === 'calendar'}
+            showNav={prefs.section === 'calendar'}
+          />
 
-        {/*
-          C'est ce cadre qui écoute le trackpad. Le décalage du geste est
-          appliqué au nœud intérieur, pour que la barre du haut reste
-          immobile pendant qu'on balaie.
-        */}
-        <View ref={hostRef} style={styles.stage}>
-          <View ref={nudgeRef} style={styles.stage}>
-            {/*
-              La `key` est ce qui rejoue l'apparition : elle ne change que
-              lorsqu'on passe d'une vue ou d'une échelle à une autre, jamais
-              en avançant d'une semaine — feuilleter le calendrier doit
-              rester instantané, seul un changement de nature s'annonce.
-            */}
-            <Appear key={`${prefs.section}:${scale}`} style={styles.stage}>
-              {body()}
-            </Appear>
+          {/*
+            C'est ce cadre qui écoute le trackpad. Le décalage du geste est
+            appliqué au nœud intérieur, pour que la barre du haut reste
+            immobile pendant qu'on balaie.
+          */}
+          <View ref={hostRef} style={styles.stage}>
+            <View ref={nudgeRef} style={styles.fill}>
+              {/*
+                La `key` est ce qui rejoue l'apparition : elle ne change que
+                lorsqu'on passe d'une vue ou d'une échelle à une autre, jamais
+                en avançant d'une semaine — feuilleter le calendrier doit
+                rester instantané, seul un changement de nature s'annonce.
+              */}
+              <Appear key={`${prefs.section}:${scale}`} style={styles.fill}>
+                {body()}
+              </Appear>
+            </View>
           </View>
         </View>
-      </View>
 
-      {prefs.inspector && (
-        <View style={styles.inspector}>
-          <Inspector
-            draft={draft}
-            dayKey={selectedKey}
-            dayEvents={visibleOn(selectedKey)}
-            onChange={patchDraft}
-            onSave={commit}
-            onDelete={drop}
-            onClose={() => setDraft(null)}
-            onSelectEvent={openEvent}
-            onCreate={() => createAt(selectedKey)}
-          />
-        </View>
-      )}
+        {prefs.inspector && (
+          <View style={styles.inspector}>
+            <Inspector
+              draft={draft}
+              pane={pane}
+              onPane={setPane}
+              dayKey={selectedKey}
+              dayEvents={visibleOn(selectedKey)}
+              onChange={patchDraft}
+              onSave={commit}
+              onDelete={drop}
+              onClose={closeCard}
+              onSelectEvent={openEvent}
+              onCreate={() => createAt(selectedKey)}
+            />
+          </View>
+        )}
+      </View>
 
       <Palette
         visible={paletteOpen}
@@ -496,11 +535,19 @@ export function DesktopRoot() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    flexDirection: 'row',
-    backgroundColor: dt.bg,
-    backgroundImage: dt.bgWash,
+    backgroundColor: dt.canvas,
+    backgroundImage: dt.canvasWash,
   } as any,
-  center: { flex: 1, minWidth: 0 },
-  stage: { flex: 1, overflow: 'hidden' },
+  frame: { flex: 1, flexDirection: 'row', padding: dt.frame, gap: dt.frame },
+  center: { flex: 1, minWidth: 0, gap: dt.frame },
+  /* la feuille de travail : plus claire que la toile, donc posée dessus */
+  stage: {
+    flex: 1,
+    overflow: 'hidden',
+    borderRadius: dt.panelRadius,
+    backgroundColor: dt.bg,
+    ...dt.shadow.float,
+  },
+  fill: { flex: 1 },
   inspector: { width: dt.inspector },
 });

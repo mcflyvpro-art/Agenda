@@ -10,8 +10,14 @@ import { alpha, dt, MOTION } from '../theme';
 import { Appear } from './Motion';
 import { IconButton, Kbd, Label, Press } from './Press';
 
+/** Les deux choses que le panneau peut montrer. */
+export type InspectorPane = 'day' | 'card';
+
 type Props = {
   draft: Draft | null;
+  /** ce qui est montré ; la fiche n'est proposée que s'il y en a une */
+  pane: InspectorPane;
+  onPane: (p: InspectorPane) => void;
   dayKey: string;
   dayEvents: AgendaEvent[];
   onChange: (patch: Partial<Draft>) => void;
@@ -62,9 +68,21 @@ function parseTime(raw: string): number | null {
  * posé dans un pied fixe plutôt qu'au bout du défilement : une fiche avec
  * des notes un peu longues l'aurait sinon poussé hors de vue, et une
  * action principale qu'il faut aller chercher n'en est plus une.
+ *
+ * Le panneau porte deux choses, et non une : le jour choisi et la fiche
+ * ouverte. Elles ne peuvent pas tenir l'une sous l'autre — trois cent
+ * quarante pixels de large ne suffisent pas à un formulaire complet plus
+ * un ordre du jour — mais elles ne peuvent pas non plus s'exclure : une
+ * fiche qui confisque le panneau empêche de regarder ce que contient le
+ * jour qu'on vient de désigner à côté, ce qui est précisément le geste
+ * qu'on fait le plus souvent en plaçant quelque chose. Deux onglets,
+ * donc, et une règle simple : le panneau montre ce qu'on vient de
+ * demander, sans que rien ne soit perdu de l'autre côté.
  */
 export function Inspector({
   draft,
+  pane,
+  onPane,
   dayKey,
   dayEvents,
   onChange,
@@ -117,92 +135,114 @@ export function Inspector({
     }
   };
 
-  /* Aucune fiche ouverte : le panneau raconte le jour choisi. */
-  if (!draft) {
-    const d = fromKey(dayKey);
-    const busy = dayEvents.filter((e) => !e.allDay).reduce((n, e) => n + (e.end - e.start), 0);
-    return (
-      <View style={styles.root}>
-        <View style={styles.head}>
-          <Text numberOfLines={1} style={styles.headTitle}>
-            {longDay(d)}
-          </Text>
-        </View>
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          <View style={styles.stats}>
-            <Stat
-              value={`${dayEvents.length}`}
-              label={dayEvents.length > 1 ? 'événements' : 'événement'}
-            />
-            <Stat value={busy ? durationLabel(0, busy) : '—'} label="occupé" />
-          </View>
+  const d = fromKey(dayKey);
+  const busy = dayEvents.filter((e) => !e.allDay).reduce((n, e) => n + (e.end - e.start), 0);
+  /* Sans fiche, il n'y a rien à choisir : le jour occupe tout le panneau. */
+  const showCard = draft != null && pane === 'card';
 
-          {dayEvents.length === 0 ? (
-            <View style={styles.hintRow}>
-              <Ionicons name="leaf-outline" size={16} color={dt.inkFaint} />
-              <Text style={styles.hint}>Rien de prévu ce jour-là.</Text>
-            </View>
-          ) : (
-            <View style={styles.dayList}>
-              {dayEvents.map((e) => {
-                const s = swatch(e.color);
-                return (
-                  <Press
-                    key={e.id}
-                    onPress={() => onSelectEvent(e)}
-                    kind="event"
-                    style={[
-                      styles.dayRow,
-                      { backgroundColor: s.wash, opacity: e.done ? 0.5 : 1 },
-                    ]}
-                    hoverStyle={{ backgroundColor: alpha(s.solid, 0.22) }}
-                  >
-                    <View style={[styles.dayBar, { backgroundColor: s.solid }]} />
-                    {settings.showEmoji && <Text style={styles.dayEmoji}>{e.emoji}</Text>}
-                    <View style={styles.flex}>
-                      <Text
-                        numberOfLines={1}
-                        style={[styles.dayTitle, { color: s.deep }, e.done && styles.strike]}
-                      >
-                        {e.title}
-                      </Text>
-                      <Text style={[styles.dayTime, { color: s.deep }]}>
-                        {e.allDay ? 'Toute la journée' : `${hhmm(e.start)} – ${hhmm(e.end)}`}
-                      </Text>
-                    </View>
-                  </Press>
-                );
-              })}
-            </View>
-          )}
-
-          <Press
-            onPress={onCreate}
-            style={[styles.bigBtn, { backgroundColor: alpha(ui.accent, 0.1) }]}
-            hoverStyle={{ backgroundColor: alpha(ui.accent, 0.17) }}
-          >
-            <Ionicons name="add" size={17} color={ui.accent} />
-            <Text style={[styles.bigBtnText, { color: ui.accent }]}>Nouvel événement</Text>
-            <Kbd>N</Kbd>
-          </Press>
-        </ScrollView>
+  const dayBody = (
+    <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <View style={styles.stats}>
+        <Stat
+          value={`${dayEvents.length}`}
+          label={dayEvents.length > 1 ? 'événements' : 'événement'}
+        />
+        <Stat value={busy ? durationLabel(0, busy) : '—'} label="occupé" />
       </View>
-    );
-  }
 
-  /* Une fiche est ouverte : on l'édite. */
+      {dayEvents.length === 0 ? (
+        <View style={styles.hintRow}>
+          <Ionicons name="leaf-outline" size={16} color={dt.inkFaint} />
+          <Text style={styles.hint}>Rien de prévu ce jour-là.</Text>
+        </View>
+      ) : (
+        <View style={styles.dayList}>
+          {dayEvents.map((e) => {
+            const s = swatch(e.color);
+            const open = draft?.id === e.id;
+            return (
+              <Press
+                key={e.id}
+                onPress={() => onSelectEvent(e)}
+                kind="event"
+                style={
+                  [
+                    styles.dayRow,
+                    { backgroundColor: s.wash, opacity: e.done ? 0.5 : 1 },
+                    open && { boxShadow: `0 0 0 1.5px ${s.solid}` },
+                  ] as any
+                }
+                hoverStyle={{ backgroundColor: alpha(s.solid, 0.22) }}
+              >
+                <View style={[styles.dayBar, { backgroundColor: s.solid }]} />
+                {settings.showEmoji && <Text style={styles.dayEmoji}>{e.emoji}</Text>}
+                <View style={styles.flex}>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.dayTitle, { color: s.deep }, e.done && styles.strike]}
+                  >
+                    {e.title}
+                  </Text>
+                  <Text style={[styles.dayTime, { color: s.deep }]}>
+                    {e.allDay ? 'Toute la journée' : `${hhmm(e.start)} – ${hhmm(e.end)}`}
+                  </Text>
+                </View>
+              </Press>
+            );
+          })}
+        </View>
+      )}
+
+      <Press
+        onPress={onCreate}
+        style={[styles.bigBtn, { backgroundColor: alpha(ui.accent, 0.1) }]}
+        hoverStyle={{ backgroundColor: alpha(ui.accent, 0.17) }}
+      >
+        <Ionicons name="add" size={17} color={ui.accent} />
+        <Text style={[styles.bigBtnText, { color: ui.accent }]}>Nouvel événement</Text>
+        <Kbd>N</Kbd>
+      </Press>
+    </ScrollView>
+  );
+
   return (
     <View style={styles.root}>
       <View style={styles.head}>
-        <View style={[styles.headDot, { backgroundColor: c.solid }]} />
+        {/*
+          L'entête nomme ce qui est montré, pas le panneau : le jour quand
+          on regarde le jour, la fiche quand on l'édite. La fiche peut
+          porter une autre date que le jour choisi — on place volontiers
+          quelque chose ailleurs que là où l'on regarde — et un entête qui
+          resterait sur le jour ferait alors lire la mauvaise date au-dessus
+          du mauvais formulaire.
+        */}
+        {showCard && <View style={[styles.headDot, { backgroundColor: c.solid }]} />}
         <Text numberOfLines={1} style={styles.headTitle}>
-          {draft.id ? 'Modifier' : 'Nouvel événement'}
+          {showCard ? (draft?.id ? 'Modifier' : 'Nouvel événement') : longDay(d)}
         </Text>
-        <IconButton onPress={onClose} title="Fermer (Échap)">
-          <Ionicons name="close" size={16} color={dt.inkSoft} />
-        </IconButton>
+        {!!draft && (
+          <IconButton onPress={onClose} title="Abandonner la fiche (Échap)">
+            <Ionicons name="close" size={16} color={dt.inkSoft} />
+          </IconButton>
+        )}
       </View>
 
+      {!!draft && (
+        <View style={styles.tabs}>
+          <Tab label="Jour" on={!showCard} onPress={() => onPane('day')} accent={ui.accent} />
+          <Tab
+            label="Fiche"
+            on={showCard}
+            onPress={() => onPane('card')}
+            accent={ui.accent}
+            dot={c.solid}
+          />
+        </View>
+      )}
+
+      {!showCard || !draft ? (
+        dayBody
+      ) : (
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {/* titre + emoji */}
         <View style={styles.titleRow}>
@@ -381,8 +421,10 @@ export function Inspector({
           </View>
         )}
       </ScrollView>
+      )}
 
       {/* le pied fixe : l'action principale ne défile jamais hors de portée */}
+      {showCard && (
       <View style={styles.foot}>
         <Press
           onPress={onSave}
@@ -406,7 +448,40 @@ export function Inspector({
           <Text style={styles.primaryHint}>⌘↵</Text>
         </Press>
       </View>
+      )}
     </View>
+  );
+}
+
+/**
+ * Un onglet du panneau.
+ *
+ * La pastille de couleur sur celui de la fiche n'est pas un ornement :
+ * c'est le seul rappel, quand on regarde le jour, de quelle fiche attend
+ * de l'autre côté — sa teinte est celle qu'elle porte dans la grille.
+ */
+function Tab({
+  label,
+  on,
+  onPress,
+  accent,
+  dot,
+}: {
+  label: string;
+  on: boolean;
+  onPress: () => void;
+  accent: string;
+  dot?: string;
+}) {
+  return (
+    <Press
+      onPress={onPress}
+      style={[styles.tab, on && { backgroundColor: dt.panel, ...dt.shadow.panel }]}
+      hoverStyle={on ? null : { backgroundColor: 'rgba(32,32,43,0.035)' }}
+    >
+      {!!dot && <View style={[styles.tabDot, { backgroundColor: dot }]} />}
+      <Text style={[styles.tabText, on && { color: accent, fontWeight: '700' }]}>{label}</Text>
+    </Press>
   );
 }
 
@@ -495,8 +570,9 @@ const styles = StyleSheet.create({
     backgroundColor: dt.veil,
     backdropFilter: dt.veilBlur,
     WebkitBackdropFilter: dt.veilBlur,
-    borderLeftWidth: 1,
-    borderLeftColor: dt.line,
+    borderRadius: dt.panelRadius,
+    overflow: 'hidden',
+    ...dt.shadow.float,
   } as any,
   flex: { flex: 1 },
 
@@ -510,6 +586,26 @@ const styles = StyleSheet.create({
     borderBottomColor: dt.line,
   },
   headDot: { width: 8, height: 8, borderRadius: 4 },
+  tabs: {
+    flexDirection: 'row',
+    gap: 2,
+    marginHorizontal: dt.gap.md,
+    marginTop: dt.gap.sm,
+    padding: 2,
+    borderRadius: dt.radius.sm,
+    backgroundColor: dt.sunken,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 26,
+    borderRadius: dt.radius.xs,
+  },
+  tabDot: { width: 7, height: 7, borderRadius: 4 },
+  tabText: { fontSize: 12, fontWeight: '600', color: dt.inkSoft },
   headTitle: { flex: 1, fontSize: 13.5, fontWeight: '800', color: dt.ink, letterSpacing: -0.3 },
   body: { padding: dt.gap.md, gap: dt.gap.md, paddingBottom: dt.gap.lg },
 

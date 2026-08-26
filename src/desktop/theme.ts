@@ -60,21 +60,34 @@ export const dt = {
   /** hauteur d'une heure dans les grilles horaires du bureau */
   hour: 52,
   radius: { xs: 7, sm: 10, md: 14, lg: 20, xl: 28, pill: 999 },
+  /** rayon des trois panneaux flottants, et écart qui les sépare */
+  panelRadius: 16,
+  frame: 10,
   gap: { xs: 4, sm: 8, md: 14, lg: 22, xl: 30 },
 
   /**
-   * Fonds : une pile de plans, du plus enfoncé au plus proche.
+   * Fonds : quatre plans, du plus enfoncé au plus proche.
    *
-   * Le fond de l'application n'est pas gris mais très légèrement teinté —
-   * un lavis froid en haut, plus chaud en bas — pour que les panneaux
-   * blancs posés dessus paraissent éclairés plutôt que découpés.
+   * L'ordre compte, et il est l'inverse de celui qu'on prend d'instinct.
+   * La toile du fond — `canvas` — est le plan le plus sombre : c'est elle
+   * qui court d'un bord à l'autre de la fenêtre, et c'est parce qu'elle
+   * est plus sombre que tout le reste que les panneaux posés dessus ont
+   * l'air de flotter. Vient ensuite la feuille de travail (`bg`), plus
+   * claire, sur laquelle les vues s'installent ; puis les cartes
+   * blanches, et enfin le blanc translucide des barres.
+   *
+   * Une toile plus claire que ses panneaux — le réflexe habituel —
+   * annulerait tout l'effet : sans écart de valeur, un panneau ne flotte
+   * pas, il se confond.
    */
-  bg: '#F3F2F7',
-  bgWash: 'linear-gradient(168deg, #F8F6FB 0%, #F3F2F8 46%, #EFEFF6 100%)',
+  canvas: '#E7E5F0',
+  canvasWash:
+    'linear-gradient(160deg, #EDEBF5 0%, #E7E5F0 48%, #E2E1EE 100%)',
+  bg: '#F4F3F9',
   panel: '#FFFFFF',
-  /** les barres translucides, posées sur le lavis du fond */
-  veil: 'rgba(255,255,255,0.74)',
-  veilBlur: 'saturate(180%) blur(22px)',
+  /** le blanc des barres, assez translucide pour que la toile les teinte */
+  veil: 'rgba(255,255,255,0.82)',
+  veilBlur: 'saturate(180%) blur(24px)',
   sunken: '#F2F1F7',
   sunkenDeep: '#E9E8F1',
 
@@ -110,6 +123,11 @@ export const dt = {
     pop: {
       boxShadow:
         '0 0 0 0.5px rgba(30,24,48,0.07), 0 10px 22px -10px rgba(30,24,48,0.24), 0 38px 70px -28px rgba(30,24,48,0.40)',
+    },
+    /** les trois panneaux flottants : posés sur la toile, pas encastrés */
+    float: {
+      boxShadow:
+        '0 0 0 0.5px rgba(40,34,62,0.06), 0 1px 3px rgba(40,34,62,0.06), 0 14px 32px -14px rgba(40,34,62,0.22)',
     },
   },
 

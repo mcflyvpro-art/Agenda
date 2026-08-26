@@ -230,9 +230,9 @@ const styles = StyleSheet.create({
     backgroundColor: dt.veil,
     backdropFilter: dt.veilBlur,
     WebkitBackdropFilter: dt.veilBlur,
-    borderRightWidth: 1,
-    borderRightColor: dt.line,
-    zIndex: 10,
+    borderRadius: dt.panelRadius,
+    overflow: 'hidden',
+    ...dt.shadow.float,
   } as any,
   flex: { flex: 1 },
 

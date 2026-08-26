@@ -25,7 +25,18 @@ type Props = {
   onSelectEvent: (e: AgendaEvent) => void;
   /** création : un clic sur une case vide, ou un glissement pour une plage */
   onCreate: (dateKey: string, start: number, end: number) => void;
-  onSelectDay?: (key: string) => void;
+  /**
+   * Un jour désigné volontairement — on a cliqué son en-tête.
+   *
+   * Séparé du suivant, et il faut y tenir : appuyer pour tracer un créneau
+   * désigne aussi une colonne, mais on ne demande pas pour autant à voir
+   * ce jour-là — on est en train d'y écrire. Confondre les deux faisait
+   * basculer le panneau de droite sur le jour pendant le tracé, puis sur
+   * la fiche au relâchement, soit un aller-retour visible pour rien.
+   */
+  onPickDay?: (key: string) => void;
+  /** le jour que le tracé en cours vise : la sélection suit, rien d'autre */
+  onDrawDay?: (key: string) => void;
   showNow?: boolean;
 };
 
@@ -56,7 +67,8 @@ export function TimeGrid({
   selectedId,
   onSelectEvent,
   onCreate,
-  onSelectDay,
+  onPickDay,
+  onDrawDay,
   showNow = true,
 }: Props) {
   const { swatch, ui, settings } = useSettings();
@@ -107,7 +119,7 @@ export function TimeGrid({
       let moved = false;
 
       setGhost({ col, from, to: from + 60 });
-      onSelectDay?.(days[col]);
+      onDrawDay?.(days[col]);
 
       const move = (ev: PointerEvent) => {
         if (Math.abs(ev.clientY - startClientY) > DRAG_SLOP) moved = true;
@@ -129,7 +141,7 @@ export function TimeGrid({
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
     },
-    [colW, days, minutesAt, onCreate, onSelectDay, endHour],
+    [colW, days, minutesAt, onCreate, onDrawDay, endHour],
   );
 
   useEffect(() => {
@@ -167,7 +179,7 @@ export function TimeGrid({
           return (
             <Press
               key={key}
-              onPress={() => onSelectDay?.(key)}
+              onPress={() => onPickDay?.(key)}
               style={[
                 styles.headCell,
                 { width: colW },
