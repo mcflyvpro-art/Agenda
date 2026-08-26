@@ -4,12 +4,12 @@ import { fromKey, hhmm, isWeekend, minutesNow, shortDay, todayKey } from '../../
 import { layoutDay } from '../../lib/layout';
 import { useSettings } from '../../store/settings';
 import type { AgendaEvent } from '../../types';
-import { dt } from '../theme';
+import { alpha, dt } from '../theme';
 import { Press } from './Press';
 
-const GUTTER = 58;
-const HEAD = 46;
-const ALLDAY_ROW = 26;
+const GUTTER = 60;
+const HEAD = 50;
+const ALLDAY_ROW = 28;
 /** pas de la grille à la création : le quart d'heure, comme partout ailleurs */
 const STEP = 15;
 /** en deçà, un glissement est un clic : on crée alors une heure par défaut */
@@ -39,6 +39,13 @@ type Props = {
  * surlignerait une plage horaire sur un agenda papier, ce qu'un doigt ne
  * peut pas faire avec assez de précision pour que ça vaille la peine sur
  * un téléphone.
+ *
+ * C'est aussi la vue la plus coûteuse de l'application : une semaine
+ * chargée, c'est sept placements de colonnes recalculés à chaque rendu.
+ * D'où deux précautions. Le placement est mémoïsé sur les jours affichés,
+ * et l'heure courante — qui avance toute seule toutes les trente
+ * secondes — vit dans son propre composant, pour qu'un battement de
+ * pendule ne redessine pas cinquante événements au passage.
  */
 export function TimeGrid({
   days,
@@ -56,7 +63,6 @@ export function TimeGrid({
   const bodyRef = useRef<any>(null);
   const scrollRef = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
-  const [now, setNow] = useState(minutesNow);
   /** le créneau qu'on est en train de tracer */
   const [ghost, setGhost] = useState<{ col: number; from: number; to: number } | null>(null);
 
@@ -64,16 +70,11 @@ export function TimeGrid({
   const bodyH = hours * hourHeight;
   const colW = days.length ? Math.max(0, (width - GUTTER) / days.length) : 0;
   const today = todayKey();
-
-  useEffect(() => {
-    if (!showNow) return;
-    const t = setInterval(() => setNow(minutesNow()), 30_000);
-    return () => clearInterval(t);
-  }, [showNow]);
+  const todayCol = days.indexOf(today);
 
   // à l'ouverture, on se pose sur l'heure courante plutôt qu'à minuit
   useEffect(() => {
-    const target = ((now - startHour * 60) / 60) * hourHeight - 180;
+    const target = ((minutesNow() - startHour * 60) / 60) * hourHeight - 180;
     scrollRef.current?.scrollTo({ y: Math.max(0, target), animated: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -144,7 +145,16 @@ export function TimeGrid({
   );
   const hasAllDay = allDay.some((l) => l.length > 0);
 
-  const hourList = Array.from({ length: hours + 1 }, (_, i) => startHour + i);
+  /* Le placement des colonnes, calculé une fois par jeu de jours. */
+  const placed = useMemo(
+    () => days.map((key) => layoutDay(eventsOn(key)).positioned),
+    [days, eventsOn],
+  );
+
+  const hourList = useMemo(
+    () => Array.from({ length: hours + 1 }, (_, i) => startHour + i),
+    [hours, startHour],
+  );
 
   return (
     <View style={styles.root} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
@@ -165,9 +175,19 @@ export function TimeGrid({
                 settings.dimWeekend && isWeekend(d) ? styles.dim : null,
               ]}
             >
-              <Text style={[styles.headDay, isToday && { color: ui.today }]}>{shortDay(d)}</Text>
+              <Text style={[styles.headDay, isToday && { color: ui.today, fontWeight: '800' }]}>
+                {shortDay(d)}
+              </Text>
               <View
-                style={[styles.headNum, isToday && { backgroundColor: ui.today }]}
+                style={
+                  [
+                    styles.headNum,
+                    isToday && {
+                      backgroundColor: ui.today,
+                      boxShadow: `0 2px 8px -2px ${alpha(ui.today, 0.7)}`,
+                    },
+                  ] as any
+                }
               >
                 <Text style={[styles.headNumText, isToday && styles.headNumToday]}>
                   {d.getDate()}
@@ -190,7 +210,9 @@ export function TimeGrid({
                   <Press
                     key={e.id}
                     onPress={() => onSelectEvent(e)}
+                    kind="event"
                     style={[styles.allDayChip, { backgroundColor: c.wash }]}
+                    hoverStyle={{ backgroundColor: alpha(c.solid, 0.28) }}
                   >
                     <Text numberOfLines={1} style={[styles.allDayText, { color: c.deep }]}>
                       {settings.showEmoji ? `${e.emoji} ` : ''}
@@ -204,136 +226,265 @@ export function TimeGrid({
         </View>
       )}
 
-      <ScrollView
-        ref={scrollRef}
-        style={styles.scroll}
-        contentContainerStyle={{ height: bodyH }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View ref={bodyRef} style={[styles.body, { height: bodyH }]}>
-          {/* lignes des heures */}
-          {hourList.map((h, i) => (
-            <View key={h} style={[styles.hourRow, { top: i * hourHeight }]}>
-              <Text style={styles.hourLabel}>{`${`${h}`.padStart(2, '0')}:00`}</Text>
-              <View style={styles.hourLine} />
-            </View>
-          ))}
-          {/* demi-heures : un repère plus léger, utile quand l'heure est haute */}
-          {hourHeight >= 44 &&
-            hourList.slice(0, -1).map((h, i) => (
-              <View
-                key={`half-${h}`}
-                style={[styles.halfLine, { top: i * hourHeight + hourHeight / 2 }]}
-              />
-            ))}
-
-          {/* colonnes */}
-          {days.map((key, col) => {
-            const d = fromKey(key);
-            return (
-              <View
-                key={`col-${key}`}
-                style={[
-                  styles.col,
-                  { left: GUTTER + col * colW, width: colW },
-                  settings.dimWeekend && isWeekend(d) ? styles.dim : null,
-                ]}
-              >
-                {col > 0 && <View style={styles.colSep} />}
-              </View>
-            );
-          })}
-
-          {/* le créneau en train d'être tracé */}
-          {ghost && (
-            <View
-              pointerEvents="none"
-              style={[
-                styles.ghost,
-                {
-                  left: GUTTER + ghost.col * colW + 3,
-                  width: Math.max(0, colW - 6),
-                  top: ((ghost.from - startHour * 60) / 60) * hourHeight,
-                  height: Math.max(
-                    14,
-                    ((ghost.to - ghost.from) / 60) * hourHeight,
-                  ),
-                  borderColor: ui.accent,
-                },
-              ]}
-            >
-              <Text style={[styles.ghostText, { color: ui.accent }]}>
-                {hhmm(ghost.from)} – {hhmm(ghost.to)}
-              </Text>
-            </View>
-          )}
-
-          {/* les événements */}
-          {days.map((key, col) => {
-            const { positioned } = layoutDay(eventsOn(key));
-            return positioned.map(({ event, col: sub, cols }) => {
-              const c = swatch(event.color);
-              const top = ((event.start - startHour * 60) / 60) * hourHeight;
-              const h = Math.max(18, ((event.end - event.start) / 60) * hourHeight - 2);
-              const w = (colW - 8) / cols;
-              const selected = event.id === selectedId;
-              return (
-                <Press
-                  key={event.id}
-                  onPress={() => onSelectEvent(event)}
-                  title={`${event.title} · ${hhmm(event.start)}–${hhmm(event.end)}`}
-                  style={[
-                    styles.event,
-                    {
-                      top,
-                      height: h,
-                      left: GUTTER + col * colW + 4 + sub * w,
-                      width: w - 2,
-                      backgroundColor: c.wash,
-                      opacity: event.done ? 0.55 : 1,
-                    },
-                    selected && { borderColor: c.solid, ...dt.shadow.panel },
-                  ]}
-                  hoverStyle={{ transform: [{ translateY: -1 }], ...dt.shadow.panel }}
-                >
-                  <View style={[styles.eventBar, { backgroundColor: c.solid }]} />
-                  <View style={styles.eventBody}>
-                    <Text numberOfLines={h < 34 ? 1 : 2} style={[styles.eventTitle, { color: c.deep }]}>
-                      {settings.showEmoji ? `${event.emoji} ` : ''}
-                      {event.title}
-                    </Text>
-                    {h >= 46 && (
-                      <Text style={[styles.eventTime, { color: c.deep }]}>
-                        {hhmm(event.start)} – {hhmm(event.end)}
-                      </Text>
-                    )}
-                  </View>
-                </Press>
-              );
-            });
-          })}
-
-          {/* l'heure qu'il est */}
-          {showNow &&
-            days.includes(today) &&
-            now >= startHour * 60 &&
-            now <= endHour * 60 && (
+      <View style={styles.scrollWrap}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={{ height: bodyH }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View ref={bodyRef} style={[styles.body, { height: bodyH }]}>
+            {/* la colonne du jour, très légèrement éclairée */}
+            {todayCol >= 0 && colW > 0 && (
               <View
                 pointerEvents="none"
-                style={[styles.nowRow, { top: ((now - startHour * 60) / 60) * hourHeight }]}
+                style={[
+                  styles.todayCol,
+                  {
+                    left: GUTTER + todayCol * colW,
+                    width: colW,
+                    backgroundColor: alpha(ui.today, 0.035),
+                  },
+                ]}
+              />
+            )}
+
+            {/* lignes des heures */}
+            {hourList.map((h, i) => (
+              <View key={h} style={[styles.hourRow, { top: i * hourHeight }]}>
+                {/*
+                  Les étiquettes chevauchent leur trait, sauf la première :
+                  au sommet de la grille, il n'y a rien au-dessus du trait
+                  pour l'accueillir, et elle se ferait couper en deux par
+                  le bord. Celle-là passe donc dessous.
+                */}
+                <Text style={[styles.hourLabel, i === 0 && styles.hourLabelFirst]}>
+                  {`${`${h}`.padStart(2, '0')}:00`}
+                </Text>
+                <View style={styles.hourLine} />
+              </View>
+            ))}
+            {/* demi-heures : un repère plus léger, utile quand l'heure est haute */}
+            {hourHeight >= 44 &&
+              hourList.slice(0, -1).map((h, i) => (
+                <View
+                  key={`half-${h}`}
+                  style={[styles.halfLine, { top: i * hourHeight + hourHeight / 2 }]}
+                />
+              ))}
+
+            {/* colonnes */}
+            {days.map((key, col) => {
+              const d = fromKey(key);
+              return (
+                <View
+                  key={`col-${key}`}
+                  style={[
+                    styles.col,
+                    { left: GUTTER + col * colW, width: colW },
+                    settings.dimWeekend && isWeekend(d) ? styles.dim : null,
+                  ]}
+                >
+                  {col > 0 && <View style={styles.colSep} />}
+                </View>
+              );
+            })}
+
+            {/* le créneau en train d'être tracé */}
+            {ghost && (
+              <View
+                pointerEvents="none"
+                dataSet={{ dk: 'live' }}
+                style={[
+                  styles.ghost,
+                  {
+                    left: GUTTER + ghost.col * colW + 3,
+                    width: Math.max(0, colW - 6),
+                    top: ((ghost.from - startHour * 60) / 60) * hourHeight,
+                    height: Math.max(16, ((ghost.to - ghost.from) / 60) * hourHeight),
+                    borderColor: ui.accent,
+                    backgroundColor: alpha(ui.accent, 0.1),
+                  },
+                ]}
               >
-                <Text style={[styles.nowLabel, { color: ui.today }]}>{hhmm(now)}</Text>
-                <View style={[styles.nowLine, { backgroundColor: ui.today }]} />
+                <Text style={[styles.ghostText, { color: ui.accent }]}>
+                  {hhmm(ghost.from)} – {hhmm(ghost.to)}
+                </Text>
               </View>
             )}
-        </View>
-      </ScrollView>
+
+            {/* les événements */}
+            {placed.map((positioned, col) =>
+              positioned.map(({ event, col: sub, cols }) => {
+                const c = swatch(event.color);
+                const top = ((event.start - startHour * 60) / 60) * hourHeight;
+                const h = Math.max(18, ((event.end - event.start) / 60) * hourHeight - 2);
+                const w = (colW - 8) / cols;
+                return (
+                  <EventBlock
+                    key={event.id}
+                    event={event}
+                    tint={c}
+                    showEmoji={settings.showEmoji}
+                    selected={event.id === selectedId}
+                    onPress={onSelectEvent}
+                    top={top}
+                    height={h}
+                    left={GUTTER + col * colW + 4 + sub * w}
+                    width={w - 2}
+                  />
+                );
+              }),
+            )}
+
+            {/* l'heure qu'il est */}
+            {showNow && todayCol >= 0 && (
+              <NowLine
+                startHour={startHour}
+                endHour={endHour}
+                hourHeight={hourHeight}
+                color={ui.today}
+              />
+            )}
+          </View>
+        </ScrollView>
+
+        {/* un voile très court sous l'en-tête : le contenu passe dessous, il ne s'y coupe pas */}
+        <View pointerEvents="none" style={styles.topFade} />
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Un événement posé dans la grille.
+ *
+ * Sorti dans son propre composant pour deux raisons. La première est
+ * mécanique : mémoïsé, il ne se redessine que si sa propre position ou
+ * son propre contenu change, et non chaque fois qu'un voisin bouge ou que
+ * l'heure avance. La seconde est visuelle : les quatre états — au repos,
+ * survolé, choisi, fait — se combinent tous par l'ombre, et il vaut mieux
+ * composer cette valeur en un seul endroit que la répartir sur quatre
+ * feuilles de style qui s'écraseraient l'une l'autre.
+ */
+const EventBlock = React.memo(function EventBlock({
+  event,
+  tint,
+  showEmoji,
+  selected,
+  onPress,
+  top,
+  height,
+  left,
+  width,
+}: {
+  event: AgendaEvent;
+  tint: { wash: string; solid: string; deep: string };
+  showEmoji: boolean;
+  selected: boolean;
+  onPress: (e: AgendaEvent) => void;
+  top: number;
+  height: number;
+  left: number;
+  width: number;
+}) {
+  const ring = selected ? `0 0 0 1.5px ${tint.solid}, ` : '';
+  return (
+    <Press
+      onPress={() => onPress(event)}
+      kind="event"
+      title={`${event.title} · ${hhmm(event.start)}–${hhmm(event.end)}`}
+      style={
+        [
+          styles.event,
+          {
+            top,
+            height,
+            left,
+            width,
+            backgroundColor: tint.wash,
+            opacity: event.done ? 0.5 : 1,
+            boxShadow: `${ring}0 1px 2px ${alpha(tint.deep, 0.1)}`,
+          },
+        ] as any
+      }
+      hoverStyle={
+        {
+          boxShadow: `${ring}0 2px 4px ${alpha(tint.deep, 0.14)}, 0 10px 20px -8px ${alpha(tint.deep, 0.34)}`,
+          transform: [{ translateY: -1 }],
+        } as any
+      }
+    >
+      <View style={[styles.eventBar, { backgroundColor: tint.solid }]} />
+      {/* un reflet du haut vers le bas : ce qui empêche l'aplat de paraître plat */}
+      <View pointerEvents="none" style={styles.eventSheen} />
+      <View style={styles.eventBody}>
+        <Text
+          numberOfLines={height < 34 ? 1 : 2}
+          style={[styles.eventTitle, { color: tint.deep }, event.done && styles.strike]}
+        >
+          {showEmoji ? `${event.emoji} ` : ''}
+          {event.title}
+        </Text>
+        {height >= 46 && (
+          <Text style={[styles.eventTime, { color: tint.deep }]}>
+            {hhmm(event.start)} – {hhmm(event.end)}
+          </Text>
+        )}
+      </View>
+    </Press>
+  );
+});
+
+/**
+ * L'heure qu'il est, sur sa propre horloge.
+ *
+ * Elle avance toutes les trente secondes ; la sortir du corps de la
+ * grille fait que ce battement ne coûte qu'un trait redessiné, au lieu
+ * d'un rendu complet de la semaine. Le point qui la termine bat lentement
+ * — deux secondes et demie par cycle — parce qu'un repère qui vit se
+ * retrouve du regard bien plus vite qu'un trait immobile.
+ */
+function NowLine({
+  startHour,
+  endHour,
+  hourHeight,
+  color,
+}: {
+  startHour: number;
+  endHour: number;
+  hourHeight: number;
+  color: string;
+}) {
+  const [now, setNow] = useState(minutesNow);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(minutesNow()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  if (now < startHour * 60 || now > endHour * 60) return null;
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[styles.nowRow, { top: ((now - startHour * 60) / 60) * hourHeight }]}
+    >
+      <View style={[styles.nowPill, { backgroundColor: color }]}>
+        <Text style={styles.nowText}>{hhmm(now)}</Text>
+      </View>
+      <View style={styles.nowDotWrap}>
+        <View dataSet={{ dkAnim: 'beat' }} style={[styles.nowHalo, { backgroundColor: color }]} />
+        <View style={[styles.nowDot, { backgroundColor: color }]} />
+      </View>
+      <View style={[styles.nowLine, { backgroundColor: color }]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, overflow: 'hidden' },
+
   head: {
     height: HEAD,
     flexDirection: 'row',
@@ -341,25 +492,25 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: dt.line,
   },
-  headCell: { height: HEAD, alignItems: 'center', justifyContent: 'center', gap: 1 },
+  headCell: { height: HEAD, alignItems: 'center', justifyContent: 'center', gap: 2 },
   headSep: { borderLeftWidth: 1, borderLeftColor: dt.line },
   headDay: {
     fontSize: 10,
     fontWeight: '700',
     color: dt.inkFaint,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   headNum: {
-    minWidth: 22,
-    height: 22,
+    minWidth: 23,
+    height: 23,
     paddingHorizontal: 5,
-    borderRadius: 11,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headNumText: { fontSize: 14, fontWeight: '700', color: dt.ink, letterSpacing: -0.3 },
-  headNumToday: { color: '#FFFFFF' },
+  headNumToday: { color: '#FFFFFF', fontWeight: '800' },
   dim: { backgroundColor: 'rgba(32,32,43,0.018)' },
 
   allDay: {
@@ -371,38 +522,51 @@ const styles = StyleSheet.create({
   },
   allDayLabel: {
     width: GUTTER,
-    paddingRight: 8,
+    paddingRight: 10,
     textAlign: 'right',
     fontSize: 9.5,
     fontWeight: '700',
     color: dt.inkFaint,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+    marginTop: 4,
   },
   allDayCell: { paddingHorizontal: 3, gap: 2 },
-  allDayChip: { borderRadius: dt.radius.xs, paddingHorizontal: 6, paddingVertical: 2 },
+  allDayChip: { borderRadius: dt.radius.xs, paddingHorizontal: 7, paddingVertical: 3 },
   allDayText: { fontSize: 11, fontWeight: '700' },
 
+  scrollWrap: { flex: 1, position: 'relative' },
   scroll: { flex: 1 },
+  topFade: {
+    position: 'absolute',
+    left: GUTTER,
+    right: 0,
+    top: 0,
+    height: 10,
+    backgroundImage: 'linear-gradient(rgba(32,32,43,0.05), rgba(32,32,43,0))',
+  } as any,
+
   body: { position: 'relative' },
+  todayCol: { position: 'absolute', top: 0, bottom: 0 },
   hourRow: { position: 'absolute', left: 0, right: 0, height: 1, flexDirection: 'row' },
   hourLabel: {
     width: GUTTER,
     marginTop: -6,
-    paddingRight: 10,
+    paddingRight: 12,
     textAlign: 'right',
     fontSize: 10.5,
     fontWeight: '600',
     color: dt.inkFaint,
     fontVariant: ['tabular-nums'],
   },
+  hourLabelFirst: { marginTop: 3 },
   hourLine: { flex: 1, height: 1, backgroundColor: dt.line },
   halfLine: {
     position: 'absolute',
     left: GUTTER,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(32,32,43,0.028)',
+    backgroundColor: 'rgba(32,32,43,0.025)',
   },
   col: { position: 'absolute', top: 0, bottom: 0 },
   colSep: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 1, backgroundColor: dt.line },
@@ -412,10 +576,10 @@ const styles = StyleSheet.create({
     borderRadius: dt.radius.sm,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    backgroundColor: 'rgba(119,67,239,0.07)',
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingTop: 2,
     justifyContent: 'flex-start',
+    zIndex: 4,
   },
   ghostText: { fontSize: 10.5, fontWeight: '800', fontVariant: ['tabular-nums'] },
 
@@ -423,15 +587,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: dt.radius.sm,
     overflow: 'hidden',
-    paddingLeft: 9,
-    paddingRight: 5,
+    paddingLeft: 10,
+    paddingRight: 6,
     paddingVertical: 3,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
   },
   eventBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
+  eventSheen: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 22,
+    backgroundImage: 'linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0))',
+  } as any,
   eventBody: { flex: 1, justifyContent: 'flex-start' },
   eventTitle: { fontSize: 11.5, fontWeight: '700', letterSpacing: -0.2 },
+  strike: { textDecorationLine: 'line-through' },
   eventTime: {
     fontSize: 10,
     fontWeight: '600',
@@ -440,15 +611,43 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
 
-  nowRow: { position: 'absolute', left: 0, right: 0, height: 1, flexDirection: 'row', zIndex: 5 },
-  nowLabel: {
-    width: GUTTER,
-    marginTop: -6,
-    paddingRight: 10,
-    textAlign: 'right',
-    fontSize: 10.5,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
+  nowRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 6,
   },
-  nowLine: { flex: 1, height: 1.5, opacity: 0.85 },
+  nowPill: {
+    position: 'absolute',
+    left: 6,
+    top: -8,
+    height: 16,
+    minWidth: 40,
+    paddingHorizontal: 5,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nowText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: 0.1,
+  },
+  nowDotWrap: {
+    position: 'absolute',
+    left: GUTTER - 3,
+    width: 7,
+    height: 7,
+    top: -3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nowHalo: { position: 'absolute', width: 7, height: 7, borderRadius: 4 },
+  nowDot: { width: 7, height: 7, borderRadius: 4 },
+  nowLine: { position: 'absolute', left: GUTTER, right: 0, height: 1.5, opacity: 0.9 },
 });

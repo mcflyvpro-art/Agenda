@@ -1,7 +1,7 @@
 import { theme } from '../theme';
 
 /**
- * Les mesures propres au bureau.
+ * Les mesures et les matières propres au bureau.
  *
  * L'interface mobile est dessinée pour le pouce : de grandes cibles, des
  * coins très arrondis, beaucoup d'air. Au clavier et à la souris, les
@@ -9,20 +9,74 @@ import { theme } from '../theme';
  * n'afficherait qu'une poignée d'informations. Tout est donc resserré :
  * cibles à la taille du curseur, rayons plus sobres, et surtout beaucoup
  * plus de densité à l'écran.
+ *
+ * Deuxième différence, moins visible mais tout aussi structurante : sur
+ * un ordinateur, la profondeur se raconte en lumière plutôt qu'en
+ * couleur. D'où une pile d'ombres à plusieurs couches — une passe courte
+ * qui décolle la surface de son fond, une passe longue et très diluée qui
+ * lui donne du poids — au lieu du halo unique et flou qui suffit sur un
+ * téléphone tenu à quarante centimètres.
  */
+
+/**
+ * Le mouvement, en un seul vocabulaire.
+ *
+ * Les durées sont volontairement plus courtes qu'en tactile : au curseur,
+ * la réponse au survol doit précéder la conscience du geste, sinon
+ * l'interface paraît molle. Rien ne dépasse un tiers de seconde, et les
+ * courbes sont toutes en décélération — départ franc, arrivée posée.
+ */
+export const MOTION = {
+  /** survol, changement d'état d'un bouton */
+  fast: '130ms',
+  /** la plupart des transitions : fond, ombre, position */
+  base: '190ms',
+  /** grandes surfaces : panneaux, apparitions */
+  slow: '280ms',
+  /** décélération façon iOS */
+  out: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  /** aller-retour symétrique */
+  inOut: 'cubic-bezier(0.4, 0, 0.2, 1)',
+  /** léger dépassement, réservé aux apparitions ponctuelles */
+  spring: 'cubic-bezier(0.34, 1.4, 0.5, 1)',
+} as const;
+
+/** Raccourci : une déclaration de transition prête à poser dans un style. */
+export const transition = (
+  props: string,
+  duration: string = MOTION.base,
+  ease: string = MOTION.out,
+) =>
+  ({
+    transitionProperty: props,
+    transitionDuration: duration,
+    transitionTimingFunction: ease,
+  }) as const;
+
 export const dt = {
-  sidebar: 236,
-  inspector: 336,
-  topbar: 56,
+  sidebar: 244,
+  inspector: 344,
+  topbar: 58,
   /** hauteur d'une heure dans les grilles horaires du bureau */
   hour: 52,
-  radius: { xs: 6, sm: 9, md: 13, lg: 18 },
-  gap: { xs: 4, sm: 8, md: 14, lg: 22 },
+  radius: { xs: 7, sm: 10, md: 14, lg: 20, xl: 28, pill: 999 },
+  gap: { xs: 4, sm: 8, md: 14, lg: 22, xl: 30 },
 
-  /** Fonds : une pile de trois plans, du plus enfoncé au plus proche. */
-  bg: '#F7F5F9',
+  /**
+   * Fonds : une pile de plans, du plus enfoncé au plus proche.
+   *
+   * Le fond de l'application n'est pas gris mais très légèrement teinté —
+   * un lavis froid en haut, plus chaud en bas — pour que les panneaux
+   * blancs posés dessus paraissent éclairés plutôt que découpés.
+   */
+  bg: '#F3F2F7',
+  bgWash: 'linear-gradient(168deg, #F8F6FB 0%, #F3F2F8 46%, #EFEFF6 100%)',
   panel: '#FFFFFF',
-  sunken: '#F1EFF5',
+  /** les barres translucides, posées sur le lavis du fond */
+  veil: 'rgba(255,255,255,0.74)',
+  veilBlur: 'saturate(180%) blur(22px)',
+  sunken: '#F2F1F7',
+  sunkenDeep: '#E9E8F1',
 
   line: theme.hairline,
   lineStrong: theme.hairlineStrong,
@@ -34,21 +88,69 @@ export const dt = {
   hover: 'rgba(32,32,43,0.045)',
   hoverStrong: 'rgba(32,32,43,0.08)',
 
+  /**
+   * Élévations.
+   *
+   * Trois couches à chaque niveau : un liseré de contact presque opaque,
+   * une ombre courte qui pose l'objet, une ombre longue très diluée qui
+   * lui donne sa masse. C'est ce triplet — et non le flou seul — qui fait
+   * la différence entre « une boîte avec une ombre » et une surface qui
+   * flotte réellement au-dessus du fond.
+   */
   shadow: {
+    flat: { boxShadow: '0 1px 1px rgba(40,34,62,0.04)' },
     panel: {
-      shadowColor: '#4A3F63',
-      shadowOpacity: 0.07,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 4 },
+      boxShadow:
+        '0 0 0 0.5px rgba(40,34,62,0.05), 0 1px 2px rgba(40,34,62,0.05), 0 6px 16px -8px rgba(40,34,62,0.14)',
+    },
+    raised: {
+      boxShadow:
+        '0 0 0 0.5px rgba(40,34,62,0.06), 0 2px 5px rgba(40,34,62,0.07), 0 14px 30px -12px rgba(40,34,62,0.20)',
     },
     pop: {
-      shadowColor: '#3B3154',
-      shadowOpacity: 0.18,
-      shadowRadius: 40,
-      shadowOffset: { width: 0, height: 18 },
+      boxShadow:
+        '0 0 0 0.5px rgba(30,24,48,0.07), 0 10px 22px -10px rgba(30,24,48,0.24), 0 38px 70px -28px rgba(30,24,48,0.40)',
     },
   },
+
+  /** L'anneau de sélection, posé autour d'une surface isolée. */
+  ring: (color: string, width = 2) =>
+    ({ boxShadow: `0 0 0 ${width}px ${color}` }) as const,
+
+  /**
+   * Le même anneau, mais tracé à l'intérieur du bord.
+   *
+   * C'est la version qu'il faut dès que la surface en touche une autre —
+   * une case de calendrier, une pastille de date : un anneau extérieur
+   * déborderait sur la voisine et ferait grossir la case d'un pixel et
+   * demi, ce qui se voit immédiatement dans une grille.
+   */
+  ringIn: (color: string, width = 2) =>
+    ({ boxShadow: `inset 0 0 0 ${width}px ${color}` }) as const,
 } as const;
 
 /** Les cinq échelles, dans l'ordre du plus large au plus serré. */
 export const SCALE_ORDER = ['year', 'month', 'week', 'day'] as const;
+
+/**
+ * Une couleur en hexadécimal, additionnée d'une opacité.
+ *
+ * Les teintes du jeu de couleurs arrivent en `#RRGGBB` ; les poser en
+ * fond demande presque toujours de les diluer. Concaténer deux chiffres
+ * hexadécimaux marche, mais rend le code illisible (`${accent}1F`) et se
+ * casse dès qu'une teinte arrive sous une autre forme.
+ */
+export function alpha(hex: string, a: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+/** Un dégradé très court d'une teinte vers elle-même, pour les pastilles. */
+export function sheen(hex: string, from = 0.22, to = 0.1): string {
+  return `linear-gradient(160deg, ${alpha(hex, from)} 0%, ${alpha(hex, to)} 100%)`;
+}

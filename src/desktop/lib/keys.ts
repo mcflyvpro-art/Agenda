@@ -33,6 +33,17 @@ export type Binding = Combo & { run: () => void };
  * d'avoir à rendre focusable chaque zone qui voudrait réagir. La table est
  * relue à chaque frappe depuis une référence, pour que les fermetures des
  * actions restent fraîches sans réabonner l'écouteur à chaque rendu.
+ *
+ * L'écoute se fait à la descente — `capture` — et pas à la remontée, pour
+ * une raison qui n'a rien de théorique : le champ de saisie de React
+ * Native Web arrête la propagation de toutes les touches qu'il reçoit.
+ * À la remontée, l'écouteur ne voit donc jamais rien de ce qui est frappé
+ * dans un champ, et les trois raccourcis explicitement marqués
+ * `whileTyping` — Échap, ⌘↵, ⌘K — sont précisément ceux qui doivent
+ * marcher là : fermer la fiche qu'on remplit, l'enregistrer, ouvrir la
+ * recherche sans lâcher le clavier. À la descente, la touche est vue
+ * avant que le champ ne l'intercepte, et ceux qui ne s'appliquent pas en
+ * pleine saisie continuent d'être écartés comme avant.
  */
 export function useKeyboard(bindings: Binding[], enabled = true) {
   const ref = useRef(bindings);
@@ -57,8 +68,8 @@ export function useKeyboard(bindings: Binding[], enabled = true) {
       }
     };
 
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [enabled]);
 }
 

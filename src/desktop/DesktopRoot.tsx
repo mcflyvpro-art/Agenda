@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
   addDays,
@@ -23,7 +23,9 @@ import { COLOR_KEYS } from '../theme';
 import type { AgendaEvent, Draft, Todo } from '../types';
 import { useKeyboard, type Binding } from './lib/keys';
 import { useWheelNav, useWheelZoom } from './lib/trackpad';
+import { installDesktopStyle, setAccentVar } from './lib/webstyle';
 import { Inspector } from './parts/Inspector';
+import { Appear } from './parts/Motion';
 import { Palette, type Command } from './parts/Palette';
 import { SettingsPanel } from './parts/SettingsPanel';
 import { Sidebar } from './parts/Sidebar';
@@ -54,10 +56,26 @@ const ZOOM_PATH: DeskScale[] = ['year', 'month', 'week', 'day'];
  * fois pour toutes dans `App.tsx`.
  */
 export function DesktopRoot() {
+  /*
+    La feuille de style du bureau, posée au premier dessin de la première
+    fenêtre — et seulement là. Ce module est chargé par le paquet quelle
+    que soit l'interface montée : l'appeler au chargement poserait ses
+    règles jusque dans la page d'un téléphone, où elles seraient inertes
+    faute de racine à laquelle s'accrocher, mais où elles n'ont rien à
+    faire. Elle est en place avant que le navigateur ne peigne quoi que
+    ce soit, et l'appel est sans effet les fois suivantes.
+  */
+  installDesktopStyle();
+
   const { byDay, events, eventsOn, save, remove, toggleDone } = useEvents();
   const { pending, remove: removeTodo } = useTodos();
-  const { settings } = useSettings();
+  const { settings, ui } = useSettings();
   const { prefs, update } = useDeskPrefs();
+
+  /* La couleur d'accent voyage jusqu'aux règles CSS par une variable :
+     anneaux de focus, curseur de saisie et texte sélectionné vivent dans
+     des pseudo-éléments qu'aucun objet de style ne peut atteindre. */
+  useEffect(() => setAccentVar(ui.accent), [ui.accent]);
 
   const [selectedKey, setSelectedKey] = useState(todayKey());
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -391,7 +409,7 @@ export function DesktopRoot() {
   };
 
   return (
-    <View style={styles.root}>
+    <View dataSet={{ dkRoot: '1' }} style={styles.root}>
       {prefs.sidebar && (
         <Sidebar
           section={prefs.section}
@@ -434,7 +452,15 @@ export function DesktopRoot() {
         */}
         <View ref={hostRef} style={styles.stage}>
           <View ref={nudgeRef} style={styles.stage}>
-            {body()}
+            {/*
+              La `key` est ce qui rejoue l'apparition : elle ne change que
+              lorsqu'on passe d'une vue ou d'une échelle à une autre, jamais
+              en avançant d'une semaine — feuilleter le calendrier doit
+              rester instantané, seul un changement de nature s'annonce.
+            */}
+            <Appear key={`${prefs.section}:${scale}`} style={styles.stage}>
+              {body()}
+            </Appear>
           </View>
         </View>
       </View>
@@ -468,7 +494,12 @@ export function DesktopRoot() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, flexDirection: 'row', backgroundColor: dt.bg },
+  root: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: dt.bg,
+    backgroundImage: dt.bgWash,
+  } as any,
   center: { flex: 1, minWidth: 0 },
   stage: { flex: 1, overflow: 'hidden' },
   inspector: { width: dt.inspector },

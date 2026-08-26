@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
@@ -9,7 +10,7 @@ import {
   weekdayLabels,
 } from '../../lib/date';
 import { useSettings } from '../../store/settings';
-import { dt } from '../theme';
+import { alpha, dt } from '../theme';
 import { Press } from './Press';
 
 type Props = {
@@ -31,6 +32,13 @@ type Props = {
  * Année. Une pastille sous les dates chargées suffit à faire apparaître la
  * forme d'un mois d'un coup d'œil ; en dire plus à cette taille ne serait
  * plus lisible.
+ *
+ * Trois états doivent rester distinguables dans un cercle de vingt-sept
+ * pixels, ce qui interdit de les dire tous en aplat. Ils se répartissent
+ * donc sur trois registres différents : aujourd'hui est un disque plein,
+ * le jour choisi un anneau, et la charge une pastille sous le chiffre.
+ * Rien ne se recouvre, et les trois peuvent tomber sur la même case sans
+ * qu'aucun disparaisse.
  */
 export function MiniMonth({
   month,
@@ -38,7 +46,7 @@ export function MiniMonth({
   countOn,
   onSelectDay,
   onPressTitle,
-  cell = 26,
+  cell = 27,
   showTitle = true,
 }: Props) {
   const { settings, ui } = useSettings();
@@ -58,11 +66,20 @@ export function MiniMonth({
     return out;
   }, [cells, month]);
 
+  const small = cell <= 24;
+
   return (
     <View>
       {showTitle && (
-        <Press onPress={onPressTitle} style={styles.title}>
+        <Press
+          onPress={onPressTitle}
+          style={styles.title}
+          hoverStyle={onPressTitle ? undefined : null}
+        >
           <Text style={styles.titleText}>{monthTitle(month)}</Text>
+          {!!onPressTitle && (
+            <Ionicons name="chevron-forward" size={11} color={dt.inkFaint} />
+          )}
         </Press>
       )}
       <View style={styles.week}>
@@ -84,17 +101,23 @@ export function MiniMonth({
               <Press
                 key={key}
                 onPress={() => onSelectDay(key)}
-                style={[
-                  styles.cell,
-                  { width: cell, height: cell, borderRadius: cell / 2 },
-                  isSel && !isToday && { backgroundColor: `${ui.accent}1F` },
-                  isToday && { backgroundColor: ui.today },
-                ]}
+                style={
+                  [
+                    styles.cell,
+                    { width: cell, height: cell, borderRadius: cell / 2 },
+                    isToday && {
+                      backgroundColor: ui.today,
+                      boxShadow: `0 2px 6px -1px ${alpha(ui.today, 0.55)}`,
+                    },
+                    isSel && !isToday && dt.ringIn(alpha(ui.accent, 0.6), 1.5),
+                  ] as any
+                }
+                hoverStyle={isToday ? null : { backgroundColor: dt.hover }}
               >
                 <Text
                   style={[
                     styles.num,
-                    { fontSize: cell <= 22 ? 9.5 : 11 },
+                    { fontSize: small ? 9.5 : 11 },
                     !inMonth && styles.out,
                     isSel && !isToday && { color: ui.accent, fontWeight: '800' },
                     isToday && styles.todayText,
@@ -106,7 +129,11 @@ export function MiniMonth({
                   <View
                     style={[
                       styles.dot,
-                      { backgroundColor: isToday ? '#FFFFFF' : ui.accent, opacity: inMonth ? 0.9 : 0.3 },
+                      {
+                        bottom: small ? 2 : 3,
+                        backgroundColor: isToday ? '#FFFFFF' : ui.accent,
+                        opacity: inMonth ? 0.9 : 0.3,
+                      },
                     ]}
                   />
                 )}
@@ -120,19 +147,30 @@ export function MiniMonth({
 }
 
 const styles = StyleSheet.create({
-  title: { paddingVertical: 4, paddingHorizontal: 4, borderRadius: dt.radius.xs, marginBottom: 2 },
-  titleText: { fontSize: 12.5, fontWeight: '800', color: dt.ink, letterSpacing: -0.2 },
+  title: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 5,
+    borderRadius: dt.radius.xs,
+    marginBottom: 2,
+  },
+  titleText: { fontSize: 12.5, fontWeight: '800', color: dt.ink, letterSpacing: -0.25 },
   week: { flexDirection: 'row' },
   dow: {
     textAlign: 'center',
     fontSize: 9,
     fontWeight: '700',
     color: dt.inkFaint,
-    paddingVertical: 3,
+    paddingVertical: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
   },
   cell: { alignItems: 'center', justifyContent: 'center' },
   num: { fontWeight: '600', color: dt.ink, fontVariant: ['tabular-nums'] },
   out: { color: dt.inkFaint, opacity: 0.55 },
   todayText: { color: '#FFFFFF', fontWeight: '800' },
-  dot: { position: 'absolute', bottom: 2.5, width: 3, height: 3, borderRadius: 2 },
+  dot: { position: 'absolute', width: 3, height: 3, borderRadius: 2 },
 });

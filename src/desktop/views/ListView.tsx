@@ -12,7 +12,8 @@ import {
 } from '../../lib/date';
 import { useSettings } from '../../store/settings';
 import type { AgendaEvent } from '../../types';
-import { dt } from '../theme';
+import { alpha, dt } from '../theme';
+import { Appear, stagger } from '../parts/Motion';
 import { Press } from '../parts/Press';
 
 /** Fenêtre montrée par la liste, autour du jour choisi. */
@@ -62,10 +63,12 @@ export function ListView({
   if (!groups.length) {
     return (
       <View style={styles.empty}>
+        <Text style={styles.emptyIcon}>◦</Text>
         <Text style={styles.emptyText}>Rien de prévu sur cette période.</Text>
         <Press
           onPress={() => onCreate(anchorKey)}
-          style={[styles.emptyBtn, { backgroundColor: `${ui.accent}14` }]}
+          style={[styles.emptyBtn, { backgroundColor: alpha(ui.accent, 0.1) }]}
+          hoverStyle={{ backgroundColor: alpha(ui.accent, 0.17) }}
         >
           <Text style={[styles.emptyBtnText, { color: ui.accent }]}>Ajouter un événement</Text>
         </Press>
@@ -75,19 +78,29 @@ export function ListView({
 
   return (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      {groups.map(({ key, list }) => {
+      {groups.map(({ key, list }, gi) => {
         const d = fromKey(key);
         const isToday = key === today;
+        const label = relativeDayLabel(key);
         return (
-          <View key={key} style={styles.group}>
-            <Press onPress={() => onSelectDay(key)} style={styles.dateCol}>
+          <Appear key={key} delay={stagger(gi, 22, 180)} style={styles.group}>
+            <Press onPress={() => onSelectDay(key)} style={styles.dateCol} hoverStyle={null}>
               <Text style={[styles.dateNum, isToday && { color: ui.today }]}>{d.getDate()}</Text>
               <Text style={[styles.dateDay, isToday && { color: ui.today }]}>
-                {relativeDayLabel(key) === longDay(d)
-                  ? longDay(d).split(' ')[0]
-                  : relativeDayLabel(key)}
+                {label === longDay(d) ? longDay(d).split(' ')[0] : label}
               </Text>
             </Press>
+
+            {/* le fil vertical qui relie les événements d'un même jour */}
+            <View style={styles.spine}>
+              <View
+                style={[
+                  styles.spineDot,
+                  { backgroundColor: isToday ? ui.today : dt.lineStrong },
+                ]}
+              />
+              <View style={styles.spineLine} />
+            </View>
 
             <View style={styles.rows}>
               {list.map((e) => {
@@ -97,15 +110,34 @@ export function ListView({
                   <Press
                     key={e.id}
                     onPress={() => onSelectEvent(e)}
-                    style={[
-                      styles.row,
-                      { backgroundColor: c.wash, opacity: e.done ? 0.55 : 1 },
-                      sel && { borderColor: c.solid },
-                    ]}
+                    kind="card"
+                    style={
+                      [
+                        styles.row,
+                        {
+                          backgroundColor: c.wash,
+                          opacity: e.done ? 0.5 : 1,
+                          boxShadow: sel
+                            ? `0 0 0 1.5px ${c.solid}, 0 2px 6px -2px ${alpha(c.deep, 0.28)}`
+                            : `0 1px 2px ${alpha(c.deep, 0.08)}`,
+                        },
+                      ] as any
+                    }
+                    hoverStyle={
+                      {
+                        transform: [{ translateY: -1 }],
+                        boxShadow: sel
+                          ? `0 0 0 1.5px ${c.solid}, 0 8px 18px -8px ${alpha(c.deep, 0.4)}`
+                          : `0 2px 4px ${alpha(c.deep, 0.12)}, 0 10px 20px -10px ${alpha(c.deep, 0.34)}`,
+                      } as any
+                    }
                   >
                     <View style={[styles.bar, { backgroundColor: c.solid }]} />
                     {settings.showEmoji && <Text style={styles.emoji}>{e.emoji}</Text>}
-                    <Text numberOfLines={1} style={[styles.title, { color: c.deep }]}>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.title, { color: c.deep }, e.done && styles.strike]}
+                    >
                       {e.title}
                     </Text>
                     <Text style={[styles.time, { color: c.deep }]}>
@@ -117,7 +149,7 @@ export function ListView({
                 );
               })}
             </View>
-          </View>
+          </Appear>
         );
       })}
     </ScrollView>
@@ -126,30 +158,49 @@ export function ListView({
 
 const styles = StyleSheet.create({
   scroll: { padding: dt.gap.lg, gap: dt.gap.md, paddingBottom: 80 },
-  group: { flexDirection: 'row', gap: dt.gap.md },
-  dateCol: { width: 96, alignItems: 'flex-end', paddingTop: 6, borderRadius: dt.radius.sm },
-  dateNum: { fontSize: 22, fontWeight: '800', color: dt.ink, letterSpacing: -0.8 },
+  group: { flexDirection: 'row', gap: dt.gap.sm },
+
+  dateCol: {
+    width: 92,
+    alignItems: 'flex-end',
+    paddingTop: 4,
+    paddingRight: 4,
+    borderRadius: dt.radius.sm,
+  },
+  dateNum: {
+    fontSize: 23,
+    fontWeight: '800',
+    color: dt.ink,
+    letterSpacing: -0.9,
+    fontVariant: ['tabular-nums'],
+  },
   dateDay: { fontSize: 11, fontWeight: '700', color: dt.inkFaint, textTransform: 'capitalize' },
+
+  /* le fil du jour : une verticale discrète qui tient les rangées ensemble */
+  spine: { width: 11, alignItems: 'center', paddingTop: 12 },
+  spineDot: { width: 7, height: 7, borderRadius: 4 },
+  spineLine: { flex: 1, width: 1, backgroundColor: dt.line, marginTop: 3 },
+
   rows: { flex: 1, gap: 5 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    height: 42,
+    gap: 10,
+    height: 44,
     borderRadius: dt.radius.sm,
-    paddingLeft: 12,
+    paddingLeft: 13,
     paddingRight: 14,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'transparent',
   },
   bar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3.5 },
   emoji: { fontSize: 15 },
   title: { flex: 1, fontSize: 13.5, fontWeight: '700', letterSpacing: -0.2 },
+  strike: { textDecorationLine: 'line-through' },
   time: { fontSize: 11.5, fontWeight: '600', opacity: 0.85, fontVariant: ['tabular-nums'] },
 
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: dt.gap.md },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: dt.gap.sm },
+  emptyIcon: { fontSize: 30, color: dt.inkFaint, opacity: 0.5, marginBottom: 2 },
   emptyText: { fontSize: 13.5, color: dt.inkSoft, fontWeight: '600' },
-  emptyBtn: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: dt.radius.sm },
+  emptyBtn: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: dt.radius.sm, marginTop: 4 },
   emptyBtnText: { fontSize: 13, fontWeight: '700' },
 });

@@ -1,13 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { durationLabel, fromKey, hhmm, longDay, toKey } from '../../lib/date';
 import { suggestFromTitle } from '../../lib/suggest';
 import { useSettings } from '../../store/settings';
 import { COLOR_KEYS, EMOJIS } from '../../theme';
 import type { AgendaEvent, Draft } from '../../types';
-import { dt } from '../theme';
-import { IconButton, Kbd, Press } from './Press';
+import { alpha, dt, MOTION } from '../theme';
+import { Appear } from './Motion';
+import { IconButton, Kbd, Label, Press } from './Press';
 
 type Props = {
   draft: Draft | null;
@@ -57,7 +58,10 @@ function parseTime(raw: string): number | null {
  *
  * D'où l'absence de bouton « enregistrer » sur le trajet normal :
  * l'enregistrement suit la saisie. Le bouton reste pour la souris, mais
- * ⌘↵ et le simple fait de cliquer ailleurs font la même chose.
+ * ⌘↵ et le simple fait de cliquer ailleurs font la même chose. Il est
+ * posé dans un pied fixe plutôt qu'au bout du défilement : une fiche avec
+ * des notes un peu longues l'aurait sinon poussé hors de vue, et une
+ * action principale qu'il faut aller chercher n'en est plus une.
  */
 export function Inspector({
   draft,
@@ -126,12 +130,18 @@ export function Inspector({
         </View>
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           <View style={styles.stats}>
-            <Stat value={`${dayEvents.length}`} label={dayEvents.length > 1 ? 'événements' : 'événement'} />
+            <Stat
+              value={`${dayEvents.length}`}
+              label={dayEvents.length > 1 ? 'événements' : 'événement'}
+            />
             <Stat value={busy ? durationLabel(0, busy) : '—'} label="occupé" />
           </View>
 
           {dayEvents.length === 0 ? (
-            <Text style={styles.hint}>Rien de prévu ce jour-là.</Text>
+            <View style={styles.hintRow}>
+              <Ionicons name="leaf-outline" size={16} color={dt.inkFaint} />
+              <Text style={styles.hint}>Rien de prévu ce jour-là.</Text>
+            </View>
           ) : (
             <View style={styles.dayList}>
               {dayEvents.map((e) => {
@@ -140,11 +150,20 @@ export function Inspector({
                   <Press
                     key={e.id}
                     onPress={() => onSelectEvent(e)}
-                    style={[styles.dayRow, { backgroundColor: s.wash, opacity: e.done ? 0.55 : 1 }]}
+                    kind="event"
+                    style={[
+                      styles.dayRow,
+                      { backgroundColor: s.wash, opacity: e.done ? 0.5 : 1 },
+                    ]}
+                    hoverStyle={{ backgroundColor: alpha(s.solid, 0.22) }}
                   >
+                    <View style={[styles.dayBar, { backgroundColor: s.solid }]} />
                     {settings.showEmoji && <Text style={styles.dayEmoji}>{e.emoji}</Text>}
                     <View style={styles.flex}>
-                      <Text numberOfLines={1} style={[styles.dayTitle, { color: s.deep }]}>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.dayTitle, { color: s.deep }, e.done && styles.strike]}
+                      >
                         {e.title}
                       </Text>
                       <Text style={[styles.dayTime, { color: s.deep }]}>
@@ -159,7 +178,8 @@ export function Inspector({
 
           <Press
             onPress={onCreate}
-            style={[styles.bigBtn, { backgroundColor: `${ui.accent}14` }]}
+            style={[styles.bigBtn, { backgroundColor: alpha(ui.accent, 0.1) }]}
+            hoverStyle={{ backgroundColor: alpha(ui.accent, 0.17) }}
           >
             <Ionicons name="add" size={17} color={ui.accent} />
             <Text style={[styles.bigBtnText, { color: ui.accent }]}>Nouvel événement</Text>
@@ -190,7 +210,9 @@ export function Inspector({
             <Press
               onPress={() => setEmojiOpen((v) => !v)}
               style={[styles.emojiBtn, { backgroundColor: c.wash }]}
+              hoverStyle={{ backgroundColor: alpha(c.solid, 0.24) }}
               title="Changer l'emoji"
+              sink
             >
               <Text style={styles.emojiBig}>{draft.emoji}</Text>
             </Press>
@@ -216,7 +238,7 @@ export function Inspector({
         </View>
 
         {emojiOpen && (
-          <View style={styles.emojiGrid}>
+          <Appear enter="pop" style={styles.emojiGrid}>
             {EMOJIS.map((e) => (
               <Press
                 key={e}
@@ -225,28 +247,38 @@ export function Inspector({
                   setEmojiOpen(false);
                 }}
                 style={[styles.emojiCell, draft.emoji === e && { backgroundColor: c.wash }]}
+                sink
               >
                 <Text style={styles.emojiSmall}>{e}</Text>
               </Press>
             ))}
-          </View>
+          </Appear>
         )}
 
         {/* couleurs */}
         <View style={styles.swatches}>
           {COLOR_KEYS.map((k) => {
             const s = swatch(k);
+            const on = draft.color === k;
             return (
               <Press
                 key={k}
                 onPress={() => onChange({ color: k })}
                 title={s.label}
-                style={[
-                  styles.swatch,
-                  { backgroundColor: s.solid },
-                  draft.color === k && styles.swatchOn,
-                ]}
-              />
+                style={
+                  [
+                    styles.swatch,
+                    { backgroundColor: s.solid },
+                    on && {
+                      transform: [{ scale: 1.14 }],
+                      boxShadow: `0 0 0 2px ${dt.panel}, 0 0 0 3.5px ${s.solid}`,
+                    },
+                  ] as any
+                }
+                hoverStyle={on ? null : ({ transform: [{ scale: 1.12 }] } as any)}
+              >
+                {on && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
+              </Press>
             );
           })}
         </View>
@@ -267,37 +299,40 @@ export function Inspector({
           />
         </Field>
 
-        <Press
-          onPress={() => onChange({ allDay: !draft.allDay })}
-          style={styles.toggleRow}
-        >
+        <Press onPress={() => onChange({ allDay: !draft.allDay })} style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>Toute la journée</Text>
-          <View style={[styles.toggle, draft.allDay && { backgroundColor: ui.accent }]}>
-            <View style={[styles.knob, draft.allDay && styles.knobOn]} />
-          </View>
+          <Switch on={draft.allDay} accent={ui.accent} />
         </Press>
 
         {!draft.allDay && (
-          <View style={styles.times}>
-            <TimeField
-              label="Début"
-              value={startText}
-              onChangeText={setStartText}
-              onCommit={() => commitTime('start', startText)}
-              onNudge={(d) => nudge('start', d)}
-            />
-            <TimeField
-              label="Fin"
-              value={endText}
-              onChangeText={setEndText}
-              onCommit={() => commitTime('end', endText)}
-              onNudge={(d) => nudge('end', d)}
-            />
-          </View>
-        )}
+          <>
+            <View style={styles.times}>
+              <TimeField
+                label="Début"
+                value={startText}
+                onChangeText={setStartText}
+                onCommit={() => commitTime('start', startText)}
+                onNudge={(d) => nudge('start', d)}
+              />
+              <View style={[styles.arrow, { backgroundColor: dt.sunken }]}>
+                <Ionicons name="arrow-forward" size={11} color={dt.inkFaint} />
+              </View>
+              <TimeField
+                label="Fin"
+                value={endText}
+                onChangeText={setEndText}
+                onCommit={() => commitTime('end', endText)}
+                onNudge={(d) => nudge('end', d)}
+              />
+            </View>
 
-        {!draft.allDay && (
-          <Text style={styles.duration}>{durationLabel(draft.start, draft.end)}</Text>
+            <View style={[styles.duration, { backgroundColor: c.wash }]}>
+              <Ionicons name="hourglass-outline" size={12} color={c.deep} />
+              <Text style={[styles.durationText, { color: c.deep }]}>
+                {durationLabel(draft.start, draft.end)}
+              </Text>
+            </View>
+          </>
         )}
 
         <Field label="Lieu">
@@ -321,32 +356,56 @@ export function Inspector({
           />
         </Field>
 
-        <View style={styles.actions}>
-          <Press
-            onPress={onSave}
-            style={[styles.primary, { backgroundColor: ui.accent }]}
-          >
-            <Text style={styles.primaryText}>Enregistrer</Text>
-            <Text style={styles.primaryHint}>⌘↵</Text>
-          </Press>
-          {draft.id && (
-            <>
-              <Press onPress={() => onChange({ done: !draft.done })} style={styles.ghostBtn}>
-                <Ionicons
-                  name={draft.done ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={16}
-                  color={draft.done ? swatch('mint').solid : dt.inkSoft}
-                />
-                <Text style={styles.ghostText}>{draft.done ? 'Fait' : 'Marquer fait'}</Text>
-              </Press>
-              <Press onPress={onDelete} style={styles.ghostBtn}>
-                <Ionicons name="trash-outline" size={15} color={swatch('blush').solid} />
-                <Text style={[styles.ghostText, { color: swatch('blush').deep }]}>Supprimer</Text>
-              </Press>
-            </>
-          )}
-        </View>
+        {draft.id && (
+          <View style={styles.secondary}>
+            <Press
+              onPress={() => onChange({ done: !draft.done })}
+              style={styles.ghostBtn}
+              hoverStyle={{ backgroundColor: alpha(swatch('mint').solid, 0.12) }}
+            >
+              <Ionicons
+                name={draft.done ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={draft.done ? swatch('mint').solid : dt.inkSoft}
+              />
+              <Text style={styles.ghostText}>{draft.done ? 'Fait' : 'Marquer fait'}</Text>
+            </Press>
+            <Press
+              onPress={onDelete}
+              style={styles.ghostBtn}
+              hoverStyle={{ backgroundColor: alpha(swatch('blush').solid, 0.12) }}
+            >
+              <Ionicons name="trash-outline" size={15} color={swatch('blush').solid} />
+              <Text style={[styles.ghostText, { color: swatch('blush').deep }]}>Supprimer</Text>
+            </Press>
+          </View>
+        )}
       </ScrollView>
+
+      {/* le pied fixe : l'action principale ne défile jamais hors de portée */}
+      <View style={styles.foot}>
+        <Press
+          onPress={onSave}
+          style={
+            [
+              styles.primary,
+              {
+                backgroundColor: ui.accent,
+                boxShadow: `0 2px 6px -1px ${alpha(ui.accent, 0.5)}`,
+              },
+            ] as any
+          }
+          hoverStyle={
+            {
+              transform: [{ translateY: -1 }],
+              boxShadow: `0 6px 16px -4px ${alpha(ui.accent, 0.65)}`,
+            } as any
+          }
+        >
+          <Text style={styles.primaryText}>Enregistrer</Text>
+          <Text style={styles.primaryHint}>⌘↵</Text>
+        </Press>
+      </View>
     </View>
   );
 }
@@ -363,8 +422,29 @@ function Stat({ value, label }: { value: string; label: string }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Label>{label}</Label>
       {children}
+    </View>
+  );
+}
+
+/** Une bascule dont le bouton glisse, plutôt que de sauter d'un bord à l'autre. */
+function Switch({ on, accent }: { on: boolean; accent: string }) {
+  return (
+    <View style={[styles.toggle, on && { backgroundColor: accent }]}>
+      <View
+        style={
+          [
+            styles.knob,
+            {
+              transform: [{ translateX: on ? 16 : 0 }],
+              transitionProperty: 'transform',
+              transitionDuration: MOTION.fast,
+              transitionTimingFunction: MOTION.out,
+            },
+          ] as any
+        }
+      />
     </View>
   );
 }
@@ -385,7 +465,7 @@ function TimeField({
 }) {
   return (
     <View style={styles.timeField}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Label>{label}</Label>
       <View style={styles.timeRow}>
         <TextInput
           value={value}
@@ -397,11 +477,11 @@ function TimeField({
           placeholderTextColor={dt.inkFaint}
         />
         <View style={styles.steppers}>
-          <Press onPress={() => onNudge(15)} style={styles.stepper} title="+ 15 min">
-            <Ionicons name="chevron-up" size={12} color={dt.inkSoft} />
+          <Press onPress={() => onNudge(15)} style={styles.stepper} title="+ 15 min" sink>
+            <Ionicons name="chevron-up" size={11} color={dt.inkSoft} />
           </Press>
-          <Press onPress={() => onNudge(-15)} style={styles.stepper} title="− 15 min">
-            <Ionicons name="chevron-down" size={12} color={dt.inkSoft} />
+          <Press onPress={() => onNudge(-15)} style={styles.stepper} title="− 15 min" sink>
+            <Ionicons name="chevron-down" size={11} color={dt.inkSoft} />
           </Press>
         </View>
       </View>
@@ -410,97 +490,147 @@ function TimeField({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: dt.panel, borderLeftWidth: 1, borderLeftColor: dt.line },
+  root: {
+    flex: 1,
+    backgroundColor: dt.veil,
+    backdropFilter: dt.veilBlur,
+    WebkitBackdropFilter: dt.veilBlur,
+    borderLeftWidth: 1,
+    borderLeftColor: dt.line,
+  } as any,
   flex: { flex: 1 },
+
   head: {
-    height: 46,
+    height: dt.topbar,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 9,
     paddingHorizontal: dt.gap.md,
     borderBottomWidth: 1,
     borderBottomColor: dt.line,
   },
   headDot: { width: 8, height: 8, borderRadius: 4 },
-  headTitle: { flex: 1, fontSize: 13, fontWeight: '800', color: dt.ink, letterSpacing: -0.2 },
-  body: { padding: dt.gap.md, gap: dt.gap.md, paddingBottom: 40 },
+  headTitle: { flex: 1, fontSize: 13.5, fontWeight: '800', color: dt.ink, letterSpacing: -0.3 },
+  body: { padding: dt.gap.md, gap: dt.gap.md, paddingBottom: dt.gap.lg },
 
   stats: { flexDirection: 'row', gap: dt.gap.sm },
-  stat: { flex: 1, backgroundColor: dt.sunken, borderRadius: dt.radius.sm, padding: 10 },
-  statValue: { fontSize: 19, fontWeight: '800', color: dt.ink, letterSpacing: -0.5 },
+  stat: {
+    flex: 1,
+    backgroundColor: dt.panel,
+    borderWidth: 1,
+    borderColor: dt.line,
+    borderRadius: dt.radius.sm,
+    padding: 11,
+  },
+  statValue: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: dt.ink,
+    letterSpacing: -0.6,
+    fontVariant: ['tabular-nums'],
+  },
   statLabel: { fontSize: 10.5, fontWeight: '600', color: dt.inkFaint, marginTop: 1 },
+  hintRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   hint: { fontSize: 12.5, color: dt.inkFaint, fontWeight: '600' },
 
   dayList: { gap: 5 },
   dayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 9,
     borderRadius: dt.radius.sm,
-    padding: 8,
+    paddingLeft: 11,
+    paddingRight: 9,
+    paddingVertical: 8,
+    overflow: 'hidden',
   },
+  dayBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
   dayEmoji: { fontSize: 15 },
   dayTitle: { fontSize: 12.5, fontWeight: '700' },
-  dayTime: { fontSize: 10.5, fontWeight: '600', opacity: 0.85, fontVariant: ['tabular-nums'] },
+  strike: { textDecorationLine: 'line-through' },
+  dayTime: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    opacity: 0.85,
+    fontVariant: ['tabular-nums'],
+    marginTop: 1,
+  },
 
   bigBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderRadius: dt.radius.sm,
-    paddingVertical: 10,
+    paddingVertical: 11,
     paddingHorizontal: 12,
   },
   bigBtnText: { flex: 1, fontSize: 12.5, fontWeight: '700' },
 
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  emojiBtn: { width: 38, height: 38, borderRadius: dt.radius.sm, alignItems: 'center', justifyContent: 'center' },
-  emojiBig: { fontSize: 19 },
+  emojiBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: dt.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiBig: { fontSize: 20 },
   titleInput: {
     flex: 1,
-    height: 38,
+    height: 40,
     fontSize: 15,
     fontWeight: '700',
     color: dt.ink,
     letterSpacing: -0.3,
     borderRadius: dt.radius.sm,
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     backgroundColor: dt.sunken,
   },
-  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 2 },
-  emojiCell: { width: 32, height: 32, borderRadius: dt.radius.xs, alignItems: 'center', justifyContent: 'center' },
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 2,
+    backgroundColor: dt.sunken,
+    borderRadius: dt.radius.sm,
+    padding: 5,
+  },
+  emojiCell: {
+    width: 32,
+    height: 32,
+    borderRadius: dt.radius.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emojiSmall: { fontSize: 16 },
 
-  swatches: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  swatch: { width: 22, height: 22, borderRadius: 11, borderWidth: 2.5, borderColor: 'transparent' },
-  swatchOn: { borderColor: dt.panel, transform: [{ scale: 1.18 }] },
-
-  field: { gap: 4 },
-  fieldLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: dt.inkFaint,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  swatches: { flexDirection: 'row', gap: 9, flexWrap: 'wrap', paddingVertical: 2 },
+  swatch: {
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
+  field: { gap: 5 },
   input: {
-    height: 32,
+    height: 34,
     borderRadius: dt.radius.sm,
     backgroundColor: dt.sunken,
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     fontSize: 12.5,
     fontWeight: '600',
     color: dt.ink,
   },
-  notes: { height: 66, paddingTop: 8, textAlignVertical: 'top' },
+  notes: { height: 72, paddingTop: 9, textAlignVertical: 'top' },
 
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: dt.radius.sm,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: 7,
+    paddingHorizontal: 6,
   },
   toggleLabel: { fontSize: 12.5, fontWeight: '600', color: dt.ink },
   toggle: {
@@ -511,42 +641,71 @@ const styles = StyleSheet.create({
     padding: 2,
     justifyContent: 'center',
   },
-  knob: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#FFFFFF' },
-  knobOn: { transform: [{ translateX: 16 }] },
+  knob: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FFFFFF',
+    boxShadow: '0 1px 2px rgba(40,34,62,0.25)',
+  } as any,
 
-  times: { flexDirection: 'row', gap: dt.gap.sm },
-  timeField: { flex: 1, gap: 4 },
+  times: { flexDirection: 'row', gap: dt.gap.sm, alignItems: 'flex-end' },
+  arrow: {
+    width: 20,
+    height: 20,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 7,
+  },
+  timeField: { flex: 1, gap: 5 },
   timeRow: { flexDirection: 'row', gap: 4, alignItems: 'center' },
-  timeInput: { flex: 1, fontVariant: ['tabular-nums'], fontWeight: '700' },
+  timeInput: { flex: 1, fontVariant: ['tabular-nums'], fontWeight: '700', fontSize: 13 },
   steppers: { gap: 2 },
   stepper: {
-    width: 20,
-    height: 15,
-    borderRadius: 4,
+    width: 21,
+    height: 16,
+    borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: dt.sunken,
   },
-  duration: { fontSize: 11.5, fontWeight: '700', color: dt.inkFaint, marginTop: -6 },
+  duration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: dt.radius.xs,
+    marginTop: -6,
+  },
+  durationText: { fontSize: 11.5, fontWeight: '700' },
 
-  actions: { gap: 6, marginTop: 4 },
+  secondary: { gap: 4, marginTop: 2 },
+  ghostBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 33,
+    borderRadius: dt.radius.sm,
+    paddingHorizontal: 10,
+  },
+  ghostText: { fontSize: 12.5, fontWeight: '600', color: dt.inkSoft },
+
+  foot: {
+    padding: dt.gap.md,
+    borderTopWidth: 1,
+    borderTopColor: dt.line,
+  },
   primary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 36,
+    height: 38,
     borderRadius: dt.radius.sm,
   },
   primaryText: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
   primaryHint: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
-  ghostBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    height: 32,
-    borderRadius: dt.radius.sm,
-    paddingHorizontal: 10,
-  },
-  ghostText: { fontSize: 12.5, fontWeight: '600', color: dt.inkSoft },
 });

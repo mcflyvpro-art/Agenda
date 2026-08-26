@@ -2,7 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { signIn, signOut, useAuthSession } from '../../sync/auth';
-import { dt } from '../theme';
+import { useSettings } from '../../store/settings';
+import { alpha, dt } from '../theme';
 import { IconButton, Press } from './Press';
 
 const noOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null;
@@ -16,6 +17,7 @@ const noOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : nu
  */
 export function SyncPanel() {
   const session = useAuthSession();
+  const { ui } = useSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -27,10 +29,16 @@ export function SyncPanel() {
     return (
       <View style={styles.box}>
         <View style={styles.statusRow}>
-          <View style={styles.dot} />
-          <Text numberOfLines={1} style={styles.statusText}>
-            {session.user.email}
-          </Text>
+          <View style={styles.dotWrap}>
+            <View dataSet={{ dkAnim: 'beat' }} style={styles.halo} />
+            <View style={styles.dot} />
+          </View>
+          <View style={styles.flex}>
+            <Text style={styles.statusLabel}>Connecté</Text>
+            <Text numberOfLines={1} style={styles.statusText}>
+              {session.user.email}
+            </Text>
+          </View>
           <IconButton onPress={() => signOut()} title="Se déconnecter">
             <Ionicons name="log-out-outline" size={15} color={dt.inkSoft} />
           </IconButton>
@@ -38,6 +46,8 @@ export function SyncPanel() {
       </View>
     );
   }
+
+  const ready = !!email.trim() && !!password && !busy;
 
   const submit = async () => {
     if (!email.trim() || !password || busy) return;
@@ -69,14 +79,36 @@ export function SyncPanel() {
         style={[styles.input, noOutline]}
         onSubmitEditing={submit}
       />
-      {!!error && <Text style={styles.error}>{error}</Text>}
-      <Press onPress={submit} style={styles.submit}>
+      {!!error && (
+        <View style={styles.errorRow}>
+          <Ionicons name="alert-circle-outline" size={13} color="#9E1A41" />
+          <Text style={styles.error}>{error}</Text>
+        </View>
+      )}
+      <Press
+        onPress={submit}
+        style={
+          [
+            styles.submit,
+            ready
+              ? { backgroundColor: ui.accent, boxShadow: `0 3px 10px -3px ${alpha(ui.accent, 0.6)}` }
+              : { backgroundColor: dt.panel },
+          ] as any
+        }
+        hoverStyle={ready ? ({ transform: [{ translateY: -1 }] } as any) : undefined}
+      >
         {busy ? (
-          <ActivityIndicator size="small" color={dt.inkSoft} />
+          <ActivityIndicator size="small" color={ready ? '#FFFFFF' : dt.inkSoft} />
         ) : (
-          <Ionicons name="cloud-upload-outline" size={14} color={dt.ink} />
+          <Ionicons
+            name="cloud-upload-outline"
+            size={14}
+            color={ready ? '#FFFFFF' : dt.inkSoft}
+          />
         )}
-        <Text style={styles.submitText}>{busy ? 'Connexion…' : 'Se connecter'}</Text>
+        <Text style={[styles.submitText, ready && styles.submitTextOn]}>
+          {busy ? 'Connexion…' : 'Se connecter'}
+        </Text>
       </Press>
     </View>
   );
@@ -84,28 +116,39 @@ export function SyncPanel() {
 
 const styles = StyleSheet.create({
   box: { padding: 6, gap: 6 },
+  flex: { flex: 1 },
   input: {
-    height: 32,
+    height: 34,
     borderRadius: dt.radius.sm,
     backgroundColor: dt.panel,
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     fontSize: 12.5,
     fontWeight: '600',
     color: dt.ink,
   },
-  error: { fontSize: 11.5, fontWeight: '600', color: '#9E1A41', paddingHorizontal: 2 },
+  errorRow: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 2 },
+  error: { flex: 1, fontSize: 11.5, fontWeight: '600', color: '#9E1A41' },
   submit: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 7,
-    height: 32,
+    height: 34,
     borderRadius: dt.radius.sm,
-    backgroundColor: dt.panel,
   },
-  submitText: { fontSize: 12.5, fontWeight: '700', color: dt.ink },
+  submitText: { fontSize: 12.5, fontWeight: '700', color: dt.inkSoft },
+  submitTextOn: { color: '#FFFFFF' },
 
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#10BC6C' },
-  statusText: { flex: 1, fontSize: 12.5, fontWeight: '700', color: dt.ink },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4 },
+  dotWrap: { width: 8, height: 8, alignItems: 'center', justifyContent: 'center' },
+  halo: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: '#10BC6C' },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10BC6C' },
+  statusLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: dt.inkFaint,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  statusText: { fontSize: 12.5, fontWeight: '700', color: dt.ink },
 });
