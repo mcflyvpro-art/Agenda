@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { hhmm } from '../../lib/date';
 import { useSettings } from '../../store/settings';
 import { useTodos } from '../../store/todos';
@@ -56,9 +56,7 @@ export function Sidebar({
   return (
     <View style={styles.root}>
       <View style={styles.brand}>
-        <View style={[styles.logo, { backgroundColor: ui.accent }]}>
-          <Ionicons name="calendar" size={13} color="#FFFFFF" />
-        </View>
+        <Image source={require('../../../assets/icon.png')} style={styles.logo} />
         <Text style={styles.brandText}>Agenda</Text>
       </View>
 
@@ -167,7 +165,7 @@ const styles = StyleSheet.create({
     gap: 9,
     paddingHorizontal: dt.gap.md,
   },
-  logo: { width: 24, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  logo: { width: 24, height: 24, borderRadius: 7 },
   brandText: { fontSize: 14.5, fontWeight: '800', color: dt.ink, letterSpacing: -0.4 },
 
   nav: { paddingHorizontal: dt.gap.sm, gap: 2 },
