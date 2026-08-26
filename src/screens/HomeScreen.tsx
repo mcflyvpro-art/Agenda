@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Appear, stagger } from '../components/Appear';
 import { DayBar } from '../components/DayBar';
 import { DayRing } from '../components/DayRing';
 import { EventCard } from '../components/EventCard';
@@ -13,7 +14,7 @@ import { tapSoft } from '../lib/haptics';
 import { useEvents } from '../store/events';
 import { useSettings } from '../store/settings';
 import { useTodos } from '../store/todos';
-import { theme } from '../theme';
+import { glow, theme } from '../theme';
 import type { AgendaEvent, Todo } from '../types';
 
 type Props = {
@@ -137,7 +138,7 @@ export function HomeScreen({
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: bottomInset + 30 }}
     >
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <Appear style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Text style={styles.date}>{longDay(new Date())}</Text>
         <Squish
           style={styles.iconBtn}
@@ -149,15 +150,15 @@ export function HomeScreen({
         >
           <Ionicons name="options-outline" size={19} color={theme.inkSoft} />
         </Squish>
-      </View>
+      </Appear>
 
-      <View style={styles.block}>
+      <Appear delay={stagger(1)} style={styles.block}>
         {/*
           Le bloc "ouvrir l'agenda" (anneau + tuiles) et la barre du jour ont
           chacun leur propre zone tactile : elles ne doivent jamais s'imbriquer
           (un bouton dans un bouton n'est pas fiable, en particulier sur le web).
         */}
-        <View style={[styles.hero, { shadowColor: ui.accent }]}>
+        <View style={[styles.hero, glow(ui.accent, 1.05)]}>
           <LinearGradient
             colors={[ui.accent, ui.today]}
             start={{ x: 0.05, y: 0 }}
@@ -186,9 +187,9 @@ export function HomeScreen({
 
           <DayBar events={all} onPressEvent={onOpenEvent} dark />
         </View>
-      </View>
+      </Appear>
 
-      <View style={styles.block}>
+      <Appear delay={stagger(2)} style={styles.block}>
         {next && nextColor ? (
           <View >
             <Squish
@@ -231,7 +232,7 @@ export function HomeScreen({
             </Squish>
           </View>
         )}
-      </View>
+      </Appear>
 
       {rest.length > 0 && (
         <View style={styles.block}>
@@ -248,7 +249,7 @@ export function HomeScreen({
         </View>
       )}
 
-      <View style={styles.block}>
+      <Appear delay={stagger(4)} style={styles.block}>
         <Squish style={styles.todoHead} scaleTo={0.99} dimTo={1} onPress={onOpenTodos}>
           <View style={styles.rule} />
           <Ionicons name="sparkles" size={14} color={ui.accent} />
@@ -268,7 +269,7 @@ export function HomeScreen({
             onSchedule={onScheduleTodo}
           />
         ))}
-      </View>
+      </Appear>
     </ScrollView>
   );
 }
@@ -297,10 +298,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 18,
     overflow: 'hidden',
-    shadowOpacity: 0.32,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 10,
   },
   heroTop: {
     flexDirection: 'row',

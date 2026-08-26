@@ -209,6 +209,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: theme.radius.xl,
     borderTopRightRadius: theme.radius.xl,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.9)',
     shadowRadius: 24,
     shadowOffset: { width: 0, height: -8 },
     elevation: 12,

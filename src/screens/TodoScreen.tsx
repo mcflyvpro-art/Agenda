@@ -10,11 +10,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Appear, stagger } from '../components/Appear';
 import { Squish } from '../components/Squish';
 import { TodoCard } from '../components/TodoCard';
 import { notifySuccess, tapLight } from '../lib/haptics';
 import { useSettings } from '../store/settings';
 import { useTodos } from '../store/todos';
+import { alpha } from '../lib/color';
 import { theme } from '../theme';
 import type { Todo } from '../types';
 
@@ -46,7 +48,10 @@ export function TodoScreen({ onOpen, onSchedule, bottomInset }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.root}
     >
-      <View style={[styles.addRow, { marginTop: insets.top + 14 }]}>
+      <Appear style={[styles.addRow, { marginTop: insets.top + 14 }]}>
+        <View style={[styles.addIcon, { backgroundColor: alpha(ui.accent, 0.13) }]}>
+          <Ionicons name="add" size={17} color={ui.accent} />
+        </View>
         <TextInput
           value={text}
           onChangeText={setText}
@@ -58,7 +63,7 @@ export function TodoScreen({ onOpen, onSchedule, bottomInset }: Props) {
           returnKeyType="done"
           blurOnSubmit={false}
         />
-      </View>
+      </Appear>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -66,11 +71,11 @@ export function TodoScreen({ onOpen, onSchedule, bottomInset }: Props) {
         contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: bottomInset + 40 }}
       >
         {pending.length === 0 && done.length === 0 && (
-          <View style={styles.empty}>
+          <Appear delay={stagger(1)} style={styles.empty}>
             <View style={styles.emptyBubble}>
               <Ionicons name="sparkles-outline" size={26} color={theme.inkFaint} />
             </View>
-          </View>
+          </Appear>
         )}
 
         {pending.map((t, i) => (
@@ -123,14 +128,22 @@ const styles = StyleSheet.create({
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 11,
     marginHorizontal: 18,
     marginBottom: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.lg,
-    paddingHorizontal: 16,
+    paddingLeft: 11,
+    paddingRight: 16,
     paddingVertical: 4,
     ...theme.shadow.soft,
+  },
+  addIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,

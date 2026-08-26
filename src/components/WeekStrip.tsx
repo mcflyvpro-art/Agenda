@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { alpha } from '../lib/color';
 import { fromKey, isSameDay, shortDay, toKey, weekOf } from '../lib/date';
 import { tapLight, tapMedium } from '../lib/haptics';
 import { theme } from '../theme';
@@ -54,10 +55,15 @@ export function WeekStrip({ selectedKey, byDay, onSelect, onLongSelect }: Props)
               {selected && (
                 <View
                   key={key}
-                  style={[
-                    styles.bubble,
-                    { backgroundColor: isToday ? ui.today : theme.ink },
-                  ]}
+                  style={
+                    [
+                      styles.bubble,
+                      {
+                        backgroundColor: isToday ? ui.today : theme.ink,
+                        boxShadow: `0 3px 10px -2px ${alpha(isToday ? ui.today : theme.ink, 0.5)}`,
+                      },
+                    ] as any
+                  }
                 />
               )}
               <Text

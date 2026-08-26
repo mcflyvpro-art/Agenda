@@ -136,10 +136,18 @@ const DayCell = memo(function DayCell({
           {selected && (
             <View
               key={key}
-              style={[
-                StyleSheet.absoluteFill,
-                { borderRadius: circle / 2, backgroundColor: isToday ? today : theme.ink },
-              ]}
+              style={
+                [
+                  StyleSheet.absoluteFill,
+                  {
+                    borderRadius: circle / 2,
+                    backgroundColor: isToday ? today : theme.ink,
+                    // la pastille éclaire la case sous elle : sans ce halo,
+                    // un disque plein posé sur une teinte pâle a l'air découpé
+                    boxShadow: `0 2px 8px -2px ${alpha(isToday ? today : theme.ink, 0.55)}`,
+                  },
+                ] as any
+              }
             />
           )}
           <Text

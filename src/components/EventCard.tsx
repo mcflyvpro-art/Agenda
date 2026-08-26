@@ -1,10 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { durationLabel, hhmm } from '../lib/date';
+import { alpha } from '../lib/color';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
 import type { AgendaEvent } from '../types';
+import { Appear, stagger } from './Appear';
 import { SwipeRow } from './SwipeRow';
 
 type Props = {
@@ -23,7 +26,7 @@ export function EventCard({ event, onPress, onToggle, onRemove, index = 0 }: Pro
   const full = settings.detail === 'full';
 
   return (
-    <View style={styles.slot}>
+    <Appear delay={stagger(index)} style={styles.slot}>
       <SwipeRow
         onRight={() => onToggle(event.id)}
         onLeft={() => onRemove(event.id)}
@@ -33,12 +36,24 @@ export function EventCard({ event, onPress, onToggle, onRemove, index = 0 }: Pro
         radius={theme.radius.lg}
       >
         <View
-          style={[
-            styles.card,
-            { backgroundColor: c.wash, opacity: done ? 0.6 : 1 },
-            minimal && { paddingVertical: 10 },
-          ]}
+          style={
+            [
+              styles.card,
+              {
+                backgroundColor: c.wash,
+                opacity: done ? 0.6 : 1,
+                boxShadow: `0 1px 2px ${alpha(c.deep, 0.07)}, 0 8px 18px -10px ${alpha(c.deep, 0.3)}`,
+              },
+              minimal && { paddingVertical: 10 },
+            ] as any
+          }
         >
+          {/* un reflet du haut vers le bas : ce qui empêche l'aplat de paraître plat */}
+          <LinearGradient
+            pointerEvents="none"
+            colors={['rgba(255,255,255,0.45)', 'rgba(255,255,255,0)']}
+            style={styles.sheen}
+          />
           <View style={[styles.bar, { backgroundColor: c.solid }]} />
 
           {settings.showEmoji && (
@@ -94,7 +109,7 @@ export function EventCard({ event, onPress, onToggle, onRemove, index = 0 }: Pro
           </View>
         </View>
       </SwipeRow>
-    </View>
+    </Appear>
   );
 }
 
@@ -109,6 +124,7 @@ const styles = StyleSheet.create({
     paddingLeft: 18,
     overflow: 'hidden',
   },
+  sheen: { position: 'absolute', left: 0, right: 0, top: 0, height: 26 },
   bar: {
     position: 'absolute',
     left: 0,

@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { BlurView } from 'expo-blur';
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { durationLabel, hhmm } from '../lib/date';
@@ -35,6 +36,8 @@ export function OverlapSheet({ events, onClose, onOpen }: Props) {
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.root}>
         <View style={[StyleSheet.absoluteFill, styles.backdrop]}>
+          {/* même voile flouté que les feuilles : la grappe passe au premier plan */}
+          <BlurView intensity={18} tint="dark" style={StyleSheet.absoluteFill} />
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </View>
 

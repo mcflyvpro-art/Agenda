@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { BlurView } from 'expo-blur';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -168,6 +169,13 @@ export function EventSheet({
     <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss} statusBarTranslucent>
       <View style={styles.root}>
         <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
+          {/*
+            Le voile ne fait pas que foncer : il floute. Un simple noir
+            translucide laisse le calendrier parfaitement lisible derrière la
+            feuille, et l'œil continue d'y chercher des choses ; le flou coupe
+            court et donne à la feuille toute l'attention.
+          */}
+          <BlurView intensity={18} tint="dark" style={StyleSheet.absoluteFill} />
           <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
         </Animated.View>
 
@@ -484,8 +492,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FCFBFE',
     borderTopLeftRadius: theme.radius.xl,
     borderTopRightRadius: theme.radius.xl,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.9)',
     paddingTop: 6,
-    ...theme.shadow.lift,
+    ...theme.shadow.over,
   },
   grabZone: { alignItems: 'center', paddingVertical: 8 },
   grab: { width: 42, height: 5, borderRadius: 3, backgroundColor: 'rgba(32,32,43,0.14)' },

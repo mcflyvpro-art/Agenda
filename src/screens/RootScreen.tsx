@@ -1,6 +1,8 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { alpha } from '../lib/color';
 import { AddButton } from '../components/AddButton';
 import { EventSheet } from '../components/EventSheet';
 import { SettingsSheet } from '../components/SettingsSheet';
@@ -22,7 +24,7 @@ export function RootScreen() {
   const insets = useSafeAreaInsets();
   const { byDay, events, save, remove, toggleDone } = useEvents();
   const { pending, save: saveTodo, remove: removeTodo, toggleDone: toggleTodo } = useTodos();
-  const { settings, update } = useSettings();
+  const { settings, update, ui } = useSettings();
 
   const [tab, setTab] = useState<TabKey>('home');
   const [selectedKey, setSelectedKey] = useState(todayKey());
@@ -194,6 +196,20 @@ export function RootScreen() {
         {screen}
       </View>
 
+      {/*
+        Le voile de l'encoche : le contenu s'y dissout au lieu de s'y
+        couper. Sans lui, une carte qui remonte sous la barre d'état s'y
+        interrompt net, et la page a l'air de commencer au mauvais endroit.
+        Il ne fait que la hauteur de la zone protégée, pour ne jamais
+        atteindre les titres, qui commencent juste en dessous.
+      */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={[ui.gradient[0], ui.gradient[0], alpha(ui.gradient[0], 0)]}
+        locations={[0, 0.55, 1]}
+        style={[styles.topVeil, { height: insets.top + 8 }]}
+      />
+
       <AddButton
         onPress={() =>
           tab === 'todo' ? createTodo() : createAt(tab === 'home' ? todayKey() : selectedKey)
@@ -232,4 +248,5 @@ export function RootScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  topVeil: { position: 'absolute', left: 0, right: 0, top: 0 },
 });

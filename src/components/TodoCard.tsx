@@ -1,7 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { durationLabel } from '../lib/date';
 import { theme } from '../theme';
 import type { Todo } from '../types';
+import { Appear, stagger } from './Appear';
 import { SwipeRow } from './SwipeRow';
 
 type Props = {
@@ -28,7 +30,7 @@ export function TodoCard({
   compact,
 }: Props) {
   return (
-    <View style={styles.slot}>
+    <Appear delay={stagger(index)} style={styles.slot}>
       <SwipeRow
         onRight={() => onToggle(todo.id)}
         onLeft={() => onRemove(todo.id)}
@@ -49,14 +51,13 @@ export function TodoCard({
             {todo.title}
           </Text>
 
+          {/* « 1 h 15 », pas « 1.25 h » : une durée ne se lit pas en décimal */}
           {!compact && !todo.done && (
-            <Text style={styles.estimate}>
-              {todo.estimate >= 60 ? `${todo.estimate / 60} h` : `${todo.estimate} min`}
-            </Text>
+            <Text style={styles.estimate}>{durationLabel(0, todo.estimate)}</Text>
           )}
         </View>
       </SwipeRow>
-    </View>
+    </Appear>
   );
 }
 
