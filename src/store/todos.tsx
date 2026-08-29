@@ -9,6 +9,7 @@ import React, {
   useState,
 } from 'react';
 import { uid } from '../lib/id';
+import { useAuthSession } from '../sync/auth';
 import { deviceIdSync } from '../sync/device';
 import { alive, collectGarbage, mergeById } from '../sync/merge';
 import type { Syncable } from '../sync/types';
@@ -17,7 +18,12 @@ import type { Todo, TodoDraft } from '../types';
 // version bumpée : les anciens exemples de démonstration, déjà enregistrés
 // dans le stockage des appareils existants, sont ainsi ignorés eux aussi —
 // l'app démarre désormais toujours vierge
-const STORAGE_KEY = 'agenda.todos.v3';
+const BASE_KEY = 'agenda.todos.v3';
+
+/** Voir le commentaire jumeau dans `events.tsx` : un tiroir par compte. */
+function storageKeyFor(userId: string | null): string {
+  return userId ? `${BASE_KEY}.${userId}` : BASE_KEY;
+}
 
 type Store = {
   todos: Todo[];
@@ -51,10 +57,18 @@ export function TodosProvider({ children }: { children: React.ReactNode }) {
   const [rows, setRows] = useState<Syncable<Todo>[]>([]);
   const hydrated = useRef(false);
 
+  const session = useAuthSession();
+  const storageKey = storageKeyFor(session?.user?.id ?? null);
+
   useEffect(() => {
+    if (session === undefined) return;
+    hydrated.current = false;
+    setRows([]); // jamais laisser voir, même une frame, le cache du compte précédent
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        // voir le commentaire jumeau dans events.tsx : pas de reprise
+        // automatique du tiroir anonyme, pour ne jamais mélanger deux comptes
+        const raw = await AsyncStorage.getItem(storageKey);
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<Syncable<Todo>>[];
           if (Array.isArray(parsed)) setRows(parsed.map(adopt));
@@ -65,12 +79,12 @@ export function TodosProvider({ children }: { children: React.ReactNode }) {
         hydrated.current = true;
       }
     })();
-  }, []);
+  }, [storageKey, session]);
 
   useEffect(() => {
     if (!hydrated.current) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(collectGarbage(rows))).catch(() => {});
-  }, [rows]);
+    AsyncStorage.setItem(storageKey, JSON.stringify(collectGarbage(rows))).catch(() => {});
+  }, [rows, storageKey]);
 
   /* Ce que voit l'application : tout sauf ce qui a été supprimé. */
   const todos = useMemo(() => alive(rows), [rows]);

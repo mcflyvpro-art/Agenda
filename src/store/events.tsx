@@ -9,6 +9,7 @@ import React, {
   useState,
 } from 'react';
 import { uid } from '../lib/id';
+import { useAuthSession } from '../sync/auth';
 import { deviceIdSync } from '../sync/device';
 import { alive, collectGarbage, mergeById } from '../sync/merge';
 import type { Syncable } from '../sync/types';
@@ -17,7 +18,24 @@ import type { AgendaEvent, Draft } from '../types';
 // version bumpée : les anciens exemples de démonstration, déjà enregistrés
 // dans le stockage des appareils existants, sont ainsi ignorés eux aussi —
 // l'app démarre désormais toujours vierge
-const STORAGE_KEY = 'agenda.events.v2';
+const BASE_KEY = 'agenda.events.v2';
+
+/**
+ * La clé de stockage local dépend du compte connecté.
+ *
+ * Sans ça, deux personnes qui se connectent tour à tour sur le même
+ * appareil (le Mac de la maison, par exemple) partageraient le même
+ * cache local : la seconde verrait les fiches de la première tant que
+ * la synchronisation n'a pas eu le temps de tout redescendre, et pire —
+ * ses propres écritures locales resteraient marquées comme siennes et
+ * finiraient poussées sur le compte de l'autre. Une clé par compte rend
+ * les deux caches aussi étanches que le sont déjà les tables sur le
+ * serveur (RLS, `user_id = auth.uid()`) : brancher un autre compte, sur
+ * le même appareil, revient à ouvrir un tiroir différent.
+ */
+function storageKeyFor(userId: string | null): string {
+  return userId ? `${BASE_KEY}.${userId}` : BASE_KEY;
+}
 
 type Store = {
   ready: boolean;
@@ -58,10 +76,28 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const hydrated = useRef(false);
 
+  // undefined tant qu'on ne sait pas encore s'il y a une session : on
+  // attend plutôt que de charger d'abord le mauvais tiroir par défaut
+  const session = useAuthSession();
+  const storageKey = storageKeyFor(session?.user?.id ?? null);
+
   useEffect(() => {
+    if (session === undefined) return;
+    hydrated.current = false;
+    setReady(false);
+    setRows([]); // jamais laisser voir, même une frame, le cache du compte précédent
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        /*
+          Volontairement pas de reprise automatique du tiroir anonyme ici :
+          sur un appareil déjà utilisé par quelqu'un d'autre avant la
+          connexion, ce tiroir contient SES fiches à elle, pas celles du
+          compte qui se connecte maintenant — le reprendre reproduirait
+          exactement le mélange que ces clés par compte existent pour
+          empêcher. Une fiche créée hors connexion, sur un appareil qui
+          passe ensuite à plusieurs comptes, reste dans son tiroir d'origine.
+        */
+        const raw = await AsyncStorage.getItem(storageKey);
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<Syncable<AgendaEvent>>[];
           if (Array.isArray(parsed)) setRows(sortEvents(parsed.map(adopt)));
@@ -73,12 +109,12 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
         setReady(true);
       }
     })();
-  }, []);
+  }, [storageKey, session]);
 
   useEffect(() => {
     if (!hydrated.current) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(collectGarbage(rows))).catch(() => {});
-  }, [rows]);
+    AsyncStorage.setItem(storageKey, JSON.stringify(collectGarbage(rows))).catch(() => {});
+  }, [rows, storageKey]);
 
   /* Ce que voit l'application : tout sauf ce qui a été supprimé. */
   const events = useMemo(() => alive(rows), [rows]);
