@@ -12,3 +12,14 @@
 export const SUPABASE_URL = 'https://gpyobivglmscjlbfprlt.supabase.co';
 export const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdweW9iaXZnbG1zY2psYmZwcmx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2OTAxMjQsImV4cCI6MjEwMzI2NjEyNH0.wYwU0w9QpBz2RihIiQ_FqMxUaZXG36AbhxV9FpI3WRg';
+
+/**
+ * La moitié publique de la paire VAPID qui signe les notifications.
+ *
+ * Elle est publique par construction : le navigateur l'exige pour créer
+ * un abonnement, et elle voyage donc dans chaque page. C'est la moitié
+ * privée qui compte, et elle ne quitte jamais le serveur — elle vit dans
+ * une table que seule la fonction `notify` peut lire.
+ */
+export const VAPID_PUBLIC_KEY =
+  'BIJ7vjjUlCwQ8Hkl4PR3IqfYtUJ5saKuThZq5RV6w-5d7BLd6hNtAo7oS487otgm7mUeBMH7t4lGSyLfEp52Hxo';

@@ -23,6 +23,7 @@ import { DUR, EASE_OUT, SPRING } from '../lib/motion';
 import { notifySuccess, tapLight, tapSoft } from '../lib/haptics';
 import { useHasFinePointer, writeOverride } from '../lib/platform';
 import { useSettings } from '../store/settings';
+import { NotifySection } from './NotifySection';
 import { SyncSection } from './SyncSection';
 import type { DayLayout, MonthCells, MonthPanel, WeekLayout } from '../store/settings';
 import { theme } from '../theme';
@@ -345,6 +346,10 @@ export function SettingsSheet({ visible, onClose }: Props) {
 
               <Section title="Synchronisation">
                 <SyncSection />
+              </Section>
+
+              <Section title="Notifications">
+                <NotifySection />
               </Section>
 
               {/*

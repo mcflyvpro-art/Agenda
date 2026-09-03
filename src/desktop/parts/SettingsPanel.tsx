@@ -7,6 +7,7 @@ import { HOUR_MAX, HOUR_MIN, useDeskPrefs } from '../store/prefs';
 import { dt, MOTION } from '../theme';
 import { Appear } from './Motion';
 import { IconButton, Kbd, Label, Press } from './Press';
+import { NotifyPanel } from './NotifyPanel';
 import { SyncPanel } from './SyncPanel';
 
 type Props = { visible: boolean; onClose: () => void };
@@ -105,6 +106,10 @@ export function SettingsPanel({ visible, onClose }: Props) {
 
           <Group title="Synchronisation">
             <SyncPanel />
+          </Group>
+
+          <Group title="Notifications">
+            <NotifyPanel />
           </Group>
 
           <Group title="Interface">

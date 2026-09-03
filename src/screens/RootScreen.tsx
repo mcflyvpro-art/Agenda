@@ -9,6 +9,7 @@ import { SettingsSheet } from '../components/SettingsSheet';
 import { TabBar, TAB_BAR_HEIGHT, type TabKey } from '../components/TabBar';
 import { TodoSheet } from '../components/TodoSheet';
 import { minutesNow, todayKey } from '../lib/date';
+import { useNotifyPrefs } from '../notify/push';
 import { suggestFromTitle } from '../lib/suggest';
 import { useEvents, type Scope } from '../store/events';
 import { useSettings } from '../store/settings';
@@ -42,6 +43,9 @@ export function RootScreen() {
 
   const bottomInset = insets.bottom + TAB_BAR_HEIGHT;
 
+  // les rappels réglés dans les préférences se posent d'office sur ce qu'on crée
+  const { prefs: notify } = useNotifyPrefs();
+
   const makeDraft = useCallback(
     (dateKey: string, start?: number, seed?: Partial<Draft>): Draft => {
       const isToday = dateKey === todayKey();
@@ -58,13 +62,15 @@ export function RootScreen() {
         location: '',
         notes: '',
         done: false,
+        repeat: null,
+        alerts: notify.defaultAlerts,
         ...rest,
         date: dateKey,
         start: base,
         end: Math.min(1440, base + length),
       };
     },
-    [events.length],
+    [events.length, notify.defaultAlerts],
   );
 
   const openEvent = useCallback(

@@ -125,6 +125,48 @@ self.addEventListener('fetch', (e) => {
     }),
   );
 });
+
+/* --- notifications -------------------------------------------------------
+
+   C'est ici, et nulle part ailleurs, qu'un rappel peut s'afficher alors que
+   l'application est fermée : le service worker est réveillé par le système
+   même quand aucune page n'est ouverte. Le message arrive déjà rédigé par le
+   serveur — titre, texte, jour — il ne reste qu'à le montrer. */
+self.addEventListener('push', (e) => {
+  let data = {};
+  try {
+    data = e.data ? e.data.json() : {};
+  } catch (_) {
+    data = { title: 'Agenda', body: e.data ? e.data.text() : '' };
+  }
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Agenda', {
+      body: data.body || '',
+      icon: ${JSON.stringify(under(iconFile))},
+      badge: ${JSON.stringify(under(iconFile))},
+      // le même repère pour un même rappel : deux tours ne peuvent pas
+      // empiler deux fois la même notification à l'écran
+      tag: data.tag || 'agenda',
+      renotify: true,
+      data: { date: data.date || null },
+    }),
+  );
+});
+
+/* Toucher la notification ouvre l'app — celle qui est déjà là si possible,
+   plutôt qu'un second exemplaire par-dessus. */
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const home = ${JSON.stringify(`${BASE}/`)};
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if (c.url.includes(home) && 'focus' in c) return c.focus();
+      }
+      return self.clients.openWindow(home);
+    }),
+  );
+});
 `,
 );
 

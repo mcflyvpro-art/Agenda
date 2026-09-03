@@ -17,6 +17,7 @@ import {
 } from '../lib/date';
 import { suggestFromTitle } from '../lib/suggest';
 import { splitOccurrenceId } from '../lib/repeat';
+import { useNotifyPrefs } from '../notify/push';
 import { useEvents, type Scope } from '../store/events';
 import { useSettings } from '../store/settings';
 import { useTodos } from '../store/todos';
@@ -82,6 +83,7 @@ export function DesktopRoot() {
   const [draft, setDraft] = useState<Draft | null>(null);
   /** sur une occurrence de routine : la règle entière, ou seulement ce jour-là */
   const [scope, setScope] = useState<Scope>('all');
+  const { prefs: notify } = useNotifyPrefs();
   /**
    * Ce que le panneau de droite montre : le jour choisi, ou la fiche.
    *
@@ -180,13 +182,16 @@ export function DesktopRoot() {
         location: '',
         notes: '',
         done: false,
+        repeat: null,
+        // les rappels réglés dans les préférences valent aussi ici
+        alerts: notify.defaultAlerts,
         ...seed,
         date: dateKey,
         start: base,
         end: end ?? Math.min(1440, base + 60),
       };
     },
-    [events.length],
+    [events.length, notify.defaultAlerts],
   );
 
   const openEvent = useCallback((e: AgendaEvent) => {
