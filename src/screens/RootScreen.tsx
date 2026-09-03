@@ -10,7 +10,7 @@ import { TabBar, TAB_BAR_HEIGHT, type TabKey } from '../components/TabBar';
 import { TodoSheet } from '../components/TodoSheet';
 import { minutesNow, todayKey } from '../lib/date';
 import { suggestFromTitle } from '../lib/suggest';
-import { useEvents } from '../store/events';
+import { useEvents, type Scope } from '../store/events';
 import { useSettings } from '../store/settings';
 import { useTodos } from '../store/todos';
 import { COLOR_KEYS } from '../theme';
@@ -105,8 +105,8 @@ export function RootScreen() {
   );
 
   const handleSaveEvent = useCallback(
-    (draft: Draft) => {
-      save(draft);
+    (draft: Draft, scope: Scope) => {
+      save(draft, scope);
       if (draft.date !== selectedKey) setSelectedKey(draft.date);
       if (eventSheet.fromTodo) removeTodo(eventSheet.fromTodo);
     },

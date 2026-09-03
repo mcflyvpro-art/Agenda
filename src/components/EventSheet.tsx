@@ -29,9 +29,12 @@ import { addMonths, chipDay, fromKey, hhmm, monthYearTitle } from '../lib/date';
 import { notifySuccess, notifyWarn, tapLight, tapSoft } from '../lib/haptics';
 import { COLOR_KEYS, EMOJIS, theme } from '../theme';
 import { useSettings } from '../store/settings';
+import type { Scope } from '../store/events';
+import { splitOccurrenceId } from '../lib/repeat';
 import { suggestFromTitle } from '../lib/suggest';
 import type { AgendaEvent, Draft } from '../types';
 import { MonthGrid } from './MonthGrid';
+import { RoutineFields } from './RoutineFields';
 import { Squish } from './Squish';
 import { TimeWheel } from './TimeWheel';
 import { Toggle } from './Toggle';
@@ -41,11 +44,11 @@ type Props = {
   draft: Draft | null;
   byDay: Record<string, AgendaEvent[]>;
   onClose: () => void;
-  onSave: (d: Draft) => void;
-  onDelete: (id: string) => void;
+  onSave: (d: Draft, scope: Scope) => void;
+  onDelete: (id: string, scope: Scope) => void;
 };
 
-type Section = 'date' | 'start' | 'end' | 'emoji' | null;
+type Section = 'date' | 'start' | 'end' | 'emoji' | 'repeat' | 'alerts' | 'until' | null;
 
 export function EventSheet({
   visible,
@@ -59,6 +62,13 @@ export function EventSheet({
   const [d, setD] = useState<Draft | null>(draft);
   const [section, setSection] = useState<Section>(null);
   const [pickerMonth, setPickerMonth] = useState<Date>(new Date());
+  /*
+    Sur une occurrence de routine, tout ce qu'on fait ici vise soit ce
+    jour-là, soit la règle entière. « Toute la série » est le défaut :
+    c'est ce qu'on veut presque toujours en ouvrant une routine — changer
+    l'heure du cours de sport, pas seulement celui de mardi prochain.
+  */
+  const [scope, setScope] = useState<Scope>('all');
 
   const { settings, swatch } = useSettings();
   const touched = useRef({ emoji: false, color: false });
@@ -69,6 +79,7 @@ export function EventSheet({
     if (visible && draft) {
       setD(draft);
       setSection(null);
+      setScope('all');
       setPickerMonth(fromKey(draft.date));
       touched.current = { emoji: false, color: false };
       ty.value = height;
@@ -155,15 +166,20 @@ export function EventSheet({
     } else {
       notifySuccess();
     }
-    onSave({
-      ...d,
-      end: d.allDay ? 1440 : Math.max(d.end, d.start + 5),
-      start: d.allDay ? 0 : d.start,
-    });
+    onSave(
+      {
+        ...d,
+        end: d.allDay ? 1440 : Math.max(d.end, d.start + 5),
+        start: d.allDay ? 0 : d.start,
+      },
+      scope,
+    );
     dismiss();
   };
 
   const isEditing = !!d.id;
+  /* Une occurrence de routine : son identifiant porte le jour qu'elle occupe. */
+  const inSeries = !!d.id && !!splitOccurrenceId(d.id);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss} statusBarTranslucent>
@@ -208,6 +224,44 @@ export function EventSheet({
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scroll}
             >
+              {/*
+                Sur une routine, la portée se choisit avant tout le reste :
+                elle change le sens de chaque geste posé en dessous, y
+                compris celui de supprimer. La mettre en tête évite d'avoir
+                à revenir dessus après coup.
+              */}
+              {inSeries && (
+                <View style={styles.scopeRow}>
+                  {(
+                    [
+                      ['all', 'Toute la série'],
+                      ['one', 'Cette fois-ci'],
+                    ] as const
+                  ).map(([key, label]) => {
+                    const on = scope === key;
+                    return (
+                      <Squish
+                        key={key}
+                        scaleTo={0.97}
+                        dimTo={1}
+                        onPress={() => {
+                          tapLight();
+                          setScope(key);
+                        }}
+                        style={[styles.scopeTab, on && { backgroundColor: c.solid }]}
+                      >
+                        <Ionicons
+                          name={key === 'all' ? 'repeat' : 'today-outline'}
+                          size={14}
+                          color={on ? '#FFFFFF' : theme.inkSoft}
+                        />
+                        <Text style={[styles.scopeText, on && { color: '#FFFFFF' }]}>{label}</Text>
+                      </Squish>
+                    );
+                  })}
+                </View>
+              )}
+
               {/* Titre + emoji */}
               <View>
                 <View style={[styles.titleRow, { backgroundColor: c.wash }]}>
@@ -426,16 +480,38 @@ export function EventSheet({
                 </View>
               </View>
 
+              {/*
+                Modifier « cette fois-ci » détache l'occasion de sa série :
+                la routine ne s'applique plus à elle, il n'y a donc rien à
+                régler ici dans ce cas.
+              */}
+              {(!inSeries || scope === 'all') && (
+                <RoutineFields
+                  date={d.date}
+                  repeat={d.repeat ?? null}
+                  alerts={d.alerts ?? []}
+                  swatchOf={c}
+                  section={section === 'repeat' || section === 'alerts' || section === 'until' ? section : null}
+                  onSection={setSection}
+                  onChange={(patch) => set(patch)}
+                />
+              )}
+
               {isEditing && (
                 <Squish
                   style={styles.delete}
                   onPress={() => {
                     notifyWarn();
-                    onDelete(d.id!);
+                    onDelete(d.id!, scope);
                     dismiss();
                   }}
                 >
                   <Ionicons name="trash-outline" size={19} color="#9E1A41" />
+                  {inSeries && (
+                    <Text style={styles.deleteText}>
+                      {scope === 'all' ? 'Supprimer la série' : 'Supprimer cette fois-ci'}
+                    </Text>
+                  )}
                 </Squish>
               )}
 
@@ -619,11 +695,33 @@ const styles = StyleSheet.create({
   },
   notes: { minHeight: 44, textAlignVertical: 'top' },
   delete: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
     marginTop: 16,
     paddingVertical: 15,
     borderRadius: theme.radius.lg,
     backgroundColor: '#FDCEDC',
   },
+  deleteText: { fontSize: 14.5, fontWeight: '700', color: '#9E1A41', letterSpacing: -0.2 },
+
+  scopeRow: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    marginBottom: 12,
+    borderRadius: 15,
+    backgroundColor: 'rgba(32,32,43,0.05)',
+  },
+  scopeTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 10,
+    borderRadius: 11,
+  },
+  scopeText: { fontSize: 13.5, fontWeight: '700', color: theme.inkSoft, letterSpacing: -0.2 },
 });

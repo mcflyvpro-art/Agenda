@@ -16,7 +16,8 @@ import {
   weekOf,
 } from '../lib/date';
 import { suggestFromTitle } from '../lib/suggest';
-import { useEvents } from '../store/events';
+import { splitOccurrenceId } from '../lib/repeat';
+import { useEvents, type Scope } from '../store/events';
 import { useSettings } from '../store/settings';
 import { useTodos } from '../store/todos';
 import { COLOR_KEYS } from '../theme';
@@ -79,6 +80,8 @@ export function DesktopRoot() {
 
   const [selectedKey, setSelectedKey] = useState(todayKey());
   const [draft, setDraft] = useState<Draft | null>(null);
+  /** sur une occurrence de routine : la règle entière, ou seulement ce jour-là */
+  const [scope, setScope] = useState<Scope>('all');
   /**
    * Ce que le panneau de droite montre : le jour choisi, ou la fiche.
    *
@@ -188,6 +191,7 @@ export function DesktopRoot() {
 
   const openEvent = useCallback((e: AgendaEvent) => {
     setFromTodo(null);
+    setScope('all');
     setDraft(e);
     setSelectedKey(e.date);
     setPane('card');
@@ -233,14 +237,26 @@ export function DesktopRoot() {
 
   const commit = useCallback(() => {
     if (!draft) return;
-    const saved = save(draft);
+    const wasOccurrence = draft.id ? splitOccurrenceId(draft.id) : null;
+    const saved = save(draft, scope);
     if (fromTodo) {
       removeTodo(fromTodo);
       setFromTodo(null);
     }
+    /*
+      Une routine modifiée en entier renvoie sa fiche mère, qui porte la
+      date d'ancrage de la série — pas celle du jour qu'on regardait. La
+      reprendre telle quelle ferait sauter le panneau des mois en arrière ;
+      on garde donc à l'écran l'occurrence sur laquelle on travaillait.
+    */
+    if (wasOccurrence && scope === 'all') {
+      setDraft({ ...saved, id: draft.id, date: draft.date });
+      setSelectedKey(draft.date);
+      return;
+    }
     setSelectedKey(saved.date);
     setDraft(saved);
-  }, [draft, save, fromTodo, removeTodo]);
+  }, [draft, save, scope, fromTodo, removeTodo]);
 
   const closeCard = useCallback(() => {
     setDraft(null);
@@ -248,9 +264,9 @@ export function DesktopRoot() {
   }, []);
 
   const drop = useCallback(() => {
-    if (draft?.id) remove(draft.id);
+    if (draft?.id) remove(draft.id, scope);
     closeCard();
-  }, [draft, remove, closeCard]);
+  }, [draft, remove, scope, closeCard]);
 
   /* ---- titre ---- */
 
@@ -509,6 +525,8 @@ export function DesktopRoot() {
               onPane={setPane}
               dayKey={selectedKey}
               dayEvents={visibleOn(selectedKey)}
+              scope={scope}
+              onScope={setScope}
               onChange={patchDraft}
               onSave={commit}
               onDelete={drop}

@@ -8,6 +8,11 @@ import type { Op, PullResult, SyncAdapter, Syncable } from './types';
  * que la traversée entre les deux, dans un sens puis dans l'autre.
  */
 
+/** Une liste de chaînes, quoi qu'ait renvoyé la base (null, autre chose). */
+const strings = (v: any): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
+const numbers = (v: any): number[] =>
+  Array.isArray(v) ? v.filter((x) => typeof x === 'number' && Number.isFinite(x)) : [];
+
 function rowToEvent(r: any): Syncable<AgendaEvent> {
   return {
     id: r.id,
@@ -25,6 +30,10 @@ function rowToEvent(r: any): Syncable<AgendaEvent> {
     updatedAt: Number(r.updated_at),
     deletedAt: r.deleted_at == null ? null : Number(r.deleted_at),
     origin: r.origin ?? '',
+    repeat: r.repeat ?? null,
+    skips: strings(r.skips),
+    doneDates: strings(r.done_dates),
+    alerts: numbers(r.alerts),
   };
 }
 
@@ -45,6 +54,10 @@ function eventToRow(e: Syncable<AgendaEvent>) {
     updated_at: e.updatedAt,
     deleted_at: e.deletedAt,
     origin: e.origin,
+    repeat: e.repeat ?? null,
+    skips: e.skips ?? [],
+    done_dates: e.doneDates ?? [],
+    alerts: e.alerts ?? [],
   };
 }
 

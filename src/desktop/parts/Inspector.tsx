@@ -2,13 +2,16 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { durationLabel, fromKey, hhmm, longDay, toKey } from '../../lib/date';
+import { splitOccurrenceId } from '../../lib/repeat';
 import { suggestFromTitle } from '../../lib/suggest';
+import type { Scope } from '../../store/events';
 import { useSettings } from '../../store/settings';
 import { COLOR_KEYS, EMOJIS } from '../../theme';
 import type { AgendaEvent, Draft } from '../../types';
 import { alpha, dt, MOTION } from '../theme';
 import { Appear } from './Motion';
 import { IconButton, Kbd, Label, Press } from './Press';
+import { RoutineBlock } from './RoutineBlock';
 
 /** Les deux choses que le panneau peut montrer. */
 export type InspectorPane = 'day' | 'card';
@@ -20,6 +23,9 @@ type Props = {
   onPane: (p: InspectorPane) => void;
   dayKey: string;
   dayEvents: AgendaEvent[];
+  /** sur une occurrence de routine : ce que touchent « enregistrer » et « supprimer » */
+  scope: Scope;
+  onScope: (s: Scope) => void;
   onChange: (patch: Partial<Draft>) => void;
   onSave: () => void;
   onDelete: () => void;
@@ -85,6 +91,8 @@ export function Inspector({
   onPane,
   dayKey,
   dayEvents,
+  scope,
+  onScope,
   onChange,
   onSave,
   onDelete,
@@ -93,6 +101,7 @@ export function Inspector({
   onCreate,
 }: Props) {
   const { swatch, ui, settings } = useSettings();
+  const inSeries = !!draft?.id && !!splitOccurrenceId(draft.id);
   const [startText, setStartText] = useState('');
   const [endText, setEndText] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -244,6 +253,40 @@ export function Inspector({
         dayBody
       ) : (
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {/*
+          Une occurrence de routine : ce choix commande tout le panneau,
+          enregistrement et suppression compris. Il vient donc en premier.
+        */}
+        {inSeries && (
+          <View style={styles.scopeRow}>
+            {(
+              [
+                ['all', 'Toute la série'],
+                ['one', 'Cette fois-ci'],
+              ] as const
+            ).map(([key, label]) => {
+              const on = scope === key;
+              return (
+                <Press
+                  key={key}
+                  onPress={() => onScope(key)}
+                  style={[styles.scopeTab, on && { backgroundColor: dt.panel, ...dt.shadow.panel }]}
+                  hoverStyle={on ? null : { backgroundColor: 'rgba(32,32,43,0.035)' }}
+                >
+                  <Ionicons
+                    name={key === 'all' ? 'repeat' : 'today-outline'}
+                    size={12}
+                    color={on ? ui.accent : dt.inkSoft}
+                  />
+                  <Text style={[styles.tabText, on && { color: ui.accent, fontWeight: '700' }]}>
+                    {label}
+                  </Text>
+                </Press>
+              );
+            })}
+          </View>
+        )}
+
         {/* titre + emoji */}
         <View style={styles.titleRow}>
           {settings.showEmoji && (
@@ -396,6 +439,18 @@ export function Inspector({
           />
         </Field>
 
+        {/* détacher une occasion la sort de sa série : rien à régler dans ce cas */}
+        {(!inSeries || scope === 'all') && (
+          <RoutineBlock
+            date={draft.date}
+            repeat={draft.repeat ?? null}
+            alerts={draft.alerts ?? []}
+            accent={ui.accent}
+            weekStart={settings.weekStart}
+            onChange={(patch) => onChange(patch)}
+          />
+        )}
+
         {draft.id && (
           <View style={styles.secondary}>
             <Press
@@ -416,7 +471,13 @@ export function Inspector({
               hoverStyle={{ backgroundColor: alpha(swatch('blush').solid, 0.12) }}
             >
               <Ionicons name="trash-outline" size={15} color={swatch('blush').solid} />
-              <Text style={[styles.ghostText, { color: swatch('blush').deep }]}>Supprimer</Text>
+              <Text style={[styles.ghostText, { color: swatch('blush').deep }]}>
+                {inSeries
+                  ? scope === 'all'
+                    ? 'Supprimer la série'
+                    : 'Supprimer cette fois-ci'
+                  : 'Supprimer'}
+              </Text>
             </Press>
           </View>
         )}
@@ -605,6 +666,22 @@ const styles = StyleSheet.create({
     borderRadius: dt.radius.xs,
   },
   tabDot: { width: 7, height: 7, borderRadius: 4 },
+  scopeRow: {
+    flexDirection: 'row',
+    gap: 2,
+    padding: 2,
+    borderRadius: dt.radius.sm,
+    backgroundColor: dt.sunken,
+  },
+  scopeTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 26,
+    borderRadius: dt.radius.xs,
+  },
   tabText: { fontSize: 12, fontWeight: '600', color: dt.inkSoft },
   headTitle: { flex: 1, fontSize: 13.5, fontWeight: '800', color: dt.ink, letterSpacing: -0.3 },
   body: { padding: dt.gap.md, gap: dt.gap.md, paddingBottom: dt.gap.lg },
