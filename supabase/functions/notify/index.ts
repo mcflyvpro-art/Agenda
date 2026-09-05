@@ -422,13 +422,35 @@ function bodyFor(e: EventRow, occurrence: string, alert: number): string {
   return bits.join(' · ');
 }
 
+/*
+  Sans ces en-têtes, le navigateur refuse de LIRE la réponse — alors même
+  que la requête a bien été traitée et que la notification est partie.
+  L'application concluait donc « serveur injoignable » au moment précis où
+  le serveur venait de faire son travail. Un mensonge coûteux : il donnait
+  à croire que rien ne marchait.
+*/
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-agenda-key, content-type, apikey',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
+
 Deno.serve(async (req) => {
+  // la requête préalable que le navigateur envoie avant le vrai appel
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+
   const url = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const db = createClient(url, serviceKey, { auth: { persistSession: false } });
 
   const { data: cfg } = await db.from('push_config').select('*').eq('id', 1).single();
-  if (!cfg) return new Response('pas de clés VAPID', { status: 500 });
+  if (!cfg) return json({ ok: false, reason: 'pas de clés VAPID' }, 500);
 
   /*
     Deux façons d'entrer, et une seule qui déclenche le tour complet.
@@ -449,7 +471,7 @@ Deno.serve(async (req) => {
   if (!isCron) {
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
     const { data } = await db.auth.getUser(token);
-    if (!data?.user) return new Response('non autorisé', { status: 401 });
+    if (!data?.user) return json({ ok: false, reason: 'non autorisé' }, 401);
     testUser = data.user.id;
   }
 
@@ -476,16 +498,14 @@ Deno.serve(async (req) => {
       .from('push_devices')
       .select('endpoint, p256dh, auth')
       .eq('user_id', testUser);
-    if (!devices?.length) {
-      return Response.json({ ok: false, reason: 'aucun appareil inscrit' }, { status: 200 });
-    }
+    if (!devices?.length) return json({ ok: false, reason: 'aucun appareil inscrit' });
     const payload = JSON.stringify({
       title: '🔔 Agenda',
       body: 'Les notifications fonctionnent sur cet appareil.',
       tag: `test-${now}`,
     });
     const codes = await Promise.all(devices.map((d) => send(d as Device, payload)));
-    return Response.json({ ok: codes.some((c) => c >= 200 && c < 300), devices: codes.length, codes });
+    return json({ ok: codes.some((c) => c >= 200 && c < 300), devices: codes.length, codes });
   }
 
   /* --- le tour de garde complet --- */
@@ -568,5 +588,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return Response.json({ ok: true, sent, skipped, at: new Date(now).toISOString() });
+  return json({ ok: true, sent, skipped, at: new Date(now).toISOString() });
 });

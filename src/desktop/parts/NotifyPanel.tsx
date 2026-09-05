@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { hhmm } from '../../lib/date';
 import { alertLabel } from '../../lib/repeat';
 import { useNotifyPrefs, usePushDevice } from '../../notify/push';
+import { useEvents } from '../../store/events';
 import { useSettings } from '../../store/settings';
 import { alpha, dt } from '../theme';
 import { Label, Press } from './Press';
@@ -25,7 +26,15 @@ export function NotifyPanel() {
   const { ui } = useSettings();
   const { supported, permission, active, busy, error, enable, disable, test } = usePushDevice();
   const { prefs, update, connected } = useNotifyPrefs();
+  const { applyDefaultAlerts } = useEvents();
   const [message, setMessage] = useState<string | null>(null);
+
+  /* Ce qui empêcherait un rappel de partir — nommé, plutôt que deviné. */
+  const blocker = !active
+    ? 'ce Mac n’est pas inscrit'
+    : !prefs.enabled
+      ? 'l’envoi est coupé pour le compte'
+      : null;
 
   if (!connected) {
     return (
@@ -62,6 +71,8 @@ export function NotifyPanel() {
         </View>
         <Switch on={active} accent={ui.accent} />
       </Press>
+
+      {!!blocker && <Text style={styles.warn}>Aucun rappel ne partira : {blocker}.</Text>}
 
       {!supported && <Text style={styles.warn}>Ce navigateur ne gère pas les notifications.</Text>}
       {permission === 'denied' && (
@@ -128,6 +139,27 @@ export function NotifyPanel() {
             );
           })}
         </View>
+        {prefs.defaultAlerts.length === 0 ? (
+          <Text style={styles.warn}>
+            Sans rappel par défaut, un nouvel événement ne sonnera pas.
+          </Text>
+        ) : (
+          <Press
+            onPress={() => {
+              const n = applyDefaultAlerts(prefs.defaultAlerts);
+              setMessage(
+                n === 0
+                  ? 'Tout ce qui est à venir a déjà un rappel.'
+                  : `Rappel ajouté à ${n} événement${n > 1 ? 's' : ''} à venir.`,
+              );
+            }}
+            style={styles.linkBtn}
+            hoverStyle={{ backgroundColor: alpha(ui.accent, 0.1) }}
+          >
+            <Ionicons name="sparkles-outline" size={14} color={dt.inkSoft} />
+            <Text style={styles.linkText}>Appliquer aux événements déjà prévus</Text>
+          </Press>
+        )}
       </View>
 
       <View style={styles.field}>

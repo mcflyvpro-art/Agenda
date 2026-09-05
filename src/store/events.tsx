@@ -57,6 +57,13 @@ type Store = {
   save: (draft: Draft, scope?: Scope) => AgendaEvent;
   remove: (id: string, scope?: Scope) => void;
   toggleDone: (id: string) => void;
+  /**
+   * Pose ces rappels sur les fiches à venir qui n'en portent aucun, et
+   * renvoie combien ont changé. Sert à rattraper un agenda déjà rempli le
+   * jour où l'on active les notifications : sans ça, il faudrait rouvrir
+   * chaque fiche une par une pour qu'elles sonnent enfin.
+   */
+  applyDefaultAlerts: (alerts: number[]) => number;
   /** fusionne des lignes venues du serveur ; « dernier écrit gagne », fiche par fiche */
   mergeRemote: (rows: Syncable<AgendaEvent>[]) => void;
 };
@@ -340,13 +347,37 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const applyDefaultAlerts = useCallback((alerts: number[]) => {
+    if (!alerts.length) return 0;
+    const now = Date.now();
+    const today = toKey(new Date());
+    let touched = 0;
+    setRows((prev) =>
+      prev.map((e) => {
+        // le passé n'a plus rien à rappeler ; une routine reste concernée
+        // quelle que soit sa date d'ancrage, puisqu'elle continue
+        const stillAhead = e.repeat ? true : e.date >= today;
+        if (e.deletedAt != null || !stillAhead || (e.alerts?.length ?? 0) > 0) return e;
+        touched++;
+        return { ...e, alerts, updatedAt: now, origin: deviceIdSync() };
+      }),
+    );
+    return touched;
+  }, []);
+
   const mergeRemote = useCallback((remote: Syncable<AgendaEvent>[]) => {
     setRows((prev) => sortEvents(mergeById(prev, remote)));
   }, []);
 
   const value = useMemo<Store>(
-    () => ({ ready, events, rows, byDay, eventsOn, save, remove, toggleDone, mergeRemote }),
-    [ready, events, rows, byDay, eventsOn, save, remove, toggleDone, mergeRemote],
+    () => ({
+      ready, events, rows, byDay, eventsOn, save, remove, toggleDone,
+      applyDefaultAlerts, mergeRemote,
+    }),
+    [
+      ready, events, rows, byDay, eventsOn, save, remove, toggleDone,
+      applyDefaultAlerts, mergeRemote,
+    ],
   );
 
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>;

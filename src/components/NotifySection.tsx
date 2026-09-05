@@ -5,6 +5,7 @@ import { hhmm } from '../lib/date';
 import { tapLight, tapSoft } from '../lib/haptics';
 import { alertLabel } from '../lib/repeat';
 import { needsHomeScreen, useNotifyPrefs, usePushDevice } from '../notify/push';
+import { useEvents } from '../store/events';
 import { useSettings } from '../store/settings';
 import { theme } from '../theme';
 import { Squish } from './Squish';
@@ -25,7 +26,22 @@ export function NotifySection() {
   const { ui } = useSettings();
   const { supported, permission, active, busy, error, enable, disable, test } = usePushDevice();
   const { prefs, update, connected } = useNotifyPrefs();
+  const { applyDefaultAlerts } = useEvents();
   const [message, setMessage] = useState<string | null>(null);
+
+  /*
+    Pourquoi rien ne sonnerait.
+
+    C'est le manque le plus coûteux de la première version : tout avait
+    l'air allumé, et pas un rappel ne partait. Trois conditions doivent
+    être réunies pour qu'une notification arrive, et aucune ne se voit
+    depuis l'écran — d'où cette phrase, qui nomme celle qui manque.
+  */
+  const blocker = !active
+    ? 'cet appareil n’est pas inscrit'
+    : !prefs.enabled
+      ? 'l’envoi des rappels est coupé pour le compte'
+      : null;
 
   const bumpTime = (key: 'allDayTime' | 'quietFrom' | 'quietTo', delta: number) => {
     tapSoft();
@@ -51,6 +67,12 @@ export function NotifySection() {
     <>
       <View style={styles.card}>
         {/* --- cet appareil --- */}
+        {/*
+          Toute la ligne est le bouton, et l'interrupteur n'est qu'un
+          dessin. Le rendre lui-même sensible au doigt faisait basculer
+          deux fois d'un seul geste — la ligne puis l'interrupteur — donc
+          allumer puis éteindre aussitôt, sans que rien ne le montre.
+        */}
         <Squish
           style={styles.row}
           scaleTo={0.985}
@@ -77,9 +99,18 @@ export function NotifySection() {
           {busy ? (
             <ActivityIndicator size="small" color={theme.inkSoft} />
           ) : (
-            <Toggle value={active} onChange={() => (active ? disable() : enable())} />
+            <View pointerEvents="none">
+              <Toggle value={active} onChange={() => {}} />
+            </View>
           )}
         </Squish>
+
+        {!!blocker && (
+          <>
+            <View style={styles.divider} />
+            <Text style={styles.warn}>Aucun rappel ne partira : {blocker}.</Text>
+          </>
+        )}
 
         {!supported && (
           <>
@@ -178,6 +209,39 @@ export function NotifySection() {
               );
             })}
           </View>
+
+          {prefs.defaultAlerts.length === 0 ? (
+            <Text style={styles.warn}>
+              Sans rappel par défaut, un nouvel événement ne sonnera pas — sauf à lui en poser un
+              dans sa fiche.
+            </Text>
+          ) : (
+            /*
+              Ces réglages ne valent que pour ce qu'on crée ensuite. Un
+              agenda déjà rempli resterait donc muet, et il faudrait
+              rouvrir chaque fiche pour y remédier — d'où ce rattrapage,
+              qui ne touche que l'avenir et laisse tranquilles les fiches
+              qui portent déjà leur propre rappel.
+            */
+            <Squish
+              style={styles.linkRow}
+              scaleTo={0.985}
+              dimTo={1}
+              onPress={() => {
+                tapSoft();
+                const n = applyDefaultAlerts(prefs.defaultAlerts);
+                setMessage(
+                  n === 0
+                    ? 'Tous vos événements à venir ont déjà un rappel.'
+                    : `Rappel ajouté à ${n} événement${n > 1 ? 's' : ''} à venir.`,
+                );
+              }}
+            >
+              <Ionicons name="sparkles-outline" size={17} color={theme.inkSoft} />
+              <Text style={styles.linkText}>Appliquer aux événements déjà prévus</Text>
+            </Squish>
+          )}
+          {!!message && <Text style={styles.note}>{message}</Text>}
         </View>
 
         <View style={styles.divider} />

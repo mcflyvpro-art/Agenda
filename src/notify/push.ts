@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { SUPABASE_URL, VAPID_PUBLIC_KEY } from '../sync/config';
 import { supabase } from '../sync/supabaseClient';
@@ -219,10 +219,35 @@ export function usePushDevice() {
         return false;
       }
       await claim(shape);
-      // le fuseau de l'appareil sert au serveur à placer « 18:00 » dans le temps réel
-      await supabase
+      /*
+        Allumer les notifications sur un appareil doit suffire à ce qu'un
+        rappel parte. On écrit donc explicitement l'interrupteur du compte
+        et un préavis par défaut, au lieu de compter sur les valeurs par
+        défaut de la table : une ligne déjà créée avec `enabled = false`
+        (ou sans aucun rappel par défaut) laisserait l'appareil inscrit,
+        l'interrupteur allumé à l'écran… et rien ne partirait jamais.
+        C'est exactement la panne silencieuse qu'on veut rendre impossible.
+
+        Le fuseau part avec, puisque c'est lui qui place « 18:00 » dans le
+        temps réel côté serveur.
+      */
+      const { data: existing } = await supabase
         .from('notify_prefs')
-        .upsert({ user_id: session.user.id, tz: localTz() }, { onConflict: 'user_id' });
+        .select('default_alerts')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      const keptAlerts = Array.isArray(existing?.default_alerts) && existing.default_alerts.length
+        ? existing.default_alerts
+        : DEFAULT_PREFS.defaultAlerts;
+      await supabase.from('notify_prefs').upsert(
+        {
+          user_id: session.user.id,
+          enabled: true,
+          default_alerts: keptAlerts,
+          tz: localTz(),
+        },
+        { onConflict: 'user_id' },
+      );
       setActive(true);
       return true;
     } catch (e) {
@@ -314,6 +339,8 @@ export function useNotifyPrefs() {
   const session = useAuthSession();
   const [prefs, setPrefs] = useState<NotifyPrefs>(DEFAULT_PREFS);
   const [ready, setReady] = useState(false);
+  /** la dernière valeur connue, lisible hors du cycle de rendu */
+  const prefsRef = useRef<NotifyPrefs>(DEFAULT_PREFS);
 
   useEffect(() => {
     if (session === undefined) return;
@@ -322,6 +349,7 @@ export function useNotifyPrefs() {
     // au changement de compte, on repart des valeurs par défaut : jamais
     // celles de la personne précédente, même le temps d'un aller-retour
     setPrefs(DEFAULT_PREFS);
+    prefsRef.current = DEFAULT_PREFS;
     if (!session) {
       setReady(true);
       return;
@@ -333,7 +361,9 @@ export function useNotifyPrefs() {
         .eq('user_id', session.user.id)
         .maybeSingle();
       if (cancelled) return;
-      setPrefs(data ? fromRow(data) : { ...DEFAULT_PREFS, tz: localTz() });
+      const loaded = data ? fromRow(data) : { ...DEFAULT_PREFS, tz: localTz() };
+      setPrefs(loaded);
+      prefsRef.current = loaded;
       setReady(true);
     })();
     return () => {
@@ -341,18 +371,23 @@ export function useNotifyPrefs() {
     };
   }, [session]);
 
+  /*
+    L'écriture se fait ici, pas à l'intérieur du calcul d'état : une
+    fonction passée à `setPrefs` doit rester pure, React se réservant le
+    droit de la rejouer. Un enregistrement glissé là-dedans partait donc
+    parfois deux fois, et pouvait porter une valeur périmée.
+  */
   const update = useCallback(
     (patch: Partial<NotifyPrefs>) => {
-      setPrefs((prev) => {
-        const next = { ...prev, ...patch };
-        if (session) {
-          supabase
-            .from('notify_prefs')
-            .upsert(toRow(next, session.user.id), { onConflict: 'user_id' })
-            .then(() => {});
-        }
-        return next;
-      });
+      const next = { ...prefsRef.current, ...patch };
+      prefsRef.current = next;
+      setPrefs(next);
+      if (session) {
+        supabase
+          .from('notify_prefs')
+          .upsert(toRow(next, session.user.id), { onConflict: 'user_id' })
+          .then(() => {});
+      }
     },
     [session],
   );
